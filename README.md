@@ -38,14 +38,23 @@ Requires Docker, Go 1.25+ and [buf](https://buf.build/docs/installation).
 cp .env.example .env              # then set JWT_SECRET (openssl rand -hex 32)
 make up                           # Postgres + Redis + migrations
 
-# three terminals
-make ingest                       # WebSocket ingestion on :8081
+# one terminal each
+make ingest                       # device WebSocket ingestion on :8081
 make persister                    # Redis Streams -> TimescaleDB
-make simulator ARGS="-n 300"      # fake fleet driving around Accra
+make broadcast                    # dashboard fan-out on :8082
+make simulator ARGS="-n 1000"     # fake fleet driving around Accra
+make web                          # dashboard on http://localhost:3000
 
 curl localhost:8081/metrics
 make psql
 ```
+
+## Web dashboard
+
+Next.js + MapLibre (OpenFreeMap tiles, no API key) + deck.gl. Fleet state lives outside React in a
+mutable store; a `requestAnimationFrame` loop interpolates every vehicle between fixes and pushes
+fresh layers to deck.gl, while React re-renders the panels at 2 Hz. Markers are sized in meters
+(clamped in pixels) so the fleet stays readable from city to street zoom.
 
 ## Backend services
 
@@ -53,6 +62,7 @@ make psql
 |---|---|
 | `ingest` | Authenticates devices (JWT, vehicle ID comes from the token), validates and time-orders points, `XADD`s batches to `telemetry:raw`, acks the highest seq so the device can prune its buffer. |
 | `persister` | Consumer group on `telemetry:raw`. `COPY`s into a staging table, then `INSERT ... ON CONFLICT DO NOTHING` into the hypertable; acks only after commit and replays its pending list after a crash. |
+| `broadcast` | Tails the stream (plain `XREAD`, so every instance sees everything), keeps the latest fix per vehicle, and once a second sends each dashboard only the vehicles that changed inside its viewport. Slow clients are resynced with a snapshot instead of buffering. |
 | `simulator` | One goroutine per vehicle mimicking the driver app: stationary filter, ack-based buffer, random dead zones with backfill on reconnect. |
 
 Measured locally (Intel MacBook Pro, everything on one machine): 5,000 vehicles at a 2s interval

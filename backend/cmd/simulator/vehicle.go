@@ -54,17 +54,39 @@ func newVehicle(id, token, url string, interval time.Duration, dropout float64, 
 	v := &vehicle{
 		id: id, token: token, url: url, interval: interval, dropout: dropout, st: st,
 		log:     log.With("vehicle_id", id),
-		lat:     minLat + rand.Float64()*(maxLat-minLat),
-		lon:     minLon + rand.Float64()*(maxLon-minLon),
 		battery: 40 + rand.Float64()*60,
 	}
+	v.lat, v.lon = randomLandPoint()
 	v.pickTarget()
 	return v
 }
 
+// coastLat approximates the Gulf of Guinea shoreline across Greater Accra
+// (piecewise linear, west to east). Until routing lands, it keeps random
+// destinations, and the straight lines between them, on land.
+func coastLat(lon float64) float64 {
+	pts := [][2]float64{{-0.32, 5.50}, {-0.21, 5.535}, {-0.14, 5.555}, {-0.06, 5.595}, {-0.02, 5.625}}
+	for i := 1; i < len(pts); i++ {
+		if lon <= pts[i][0] {
+			a, b := pts[i-1], pts[i]
+			return a[1] + (lon-a[0])/(b[0]-a[0])*(b[1]-a[1])
+		}
+	}
+	return pts[len(pts)-1][1]
+}
+
+func randomLandPoint() (lat, lon float64) {
+	for {
+		lat = minLat + rand.Float64()*(maxLat-minLat)
+		lon = minLon + rand.Float64()*(maxLon-minLon)
+		if lat > coastLat(lon)+0.012 {
+			return lat, lon
+		}
+	}
+}
+
 func (v *vehicle) pickTarget() {
-	v.targetLat = minLat + rand.Float64()*(maxLat-minLat)
-	v.targetLon = minLon + rand.Float64()*(maxLon-minLon)
+	v.targetLat, v.targetLon = randomLandPoint()
 	v.cruiseKmh = 20 + rand.Float64()*45
 }
 

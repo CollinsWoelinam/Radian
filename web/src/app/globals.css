@@ -1,0 +1,98 @@
+@import "tailwindcss";
+
+:root {
+  --bg: #0b0f14;
+  --fg: #e6eaf0;
+  --muted: #8b95a5;
+  --panel: rgb(17 22 30 / 0.82);
+  --input: rgb(255 255 255 / 0.04);
+  --hover: rgb(255 255 255 / 0.06);
+  --line: rgb(255 255 255 / 0.09);
+  --accent: #3b82f6;
+  --shadow: 0 8px 30px rgb(0 0 0 / 0.35);
+}
+
+:root[data-theme="light"] {
+  --bg: #eef1f5;
+  --fg: #111827;
+  --muted: #5b6474;
+  --panel: rgb(255 255 255 / 0.86);
+  --input: rgb(0 0 0 / 0.03);
+  --hover: rgb(0 0 0 / 0.05);
+  --line: rgb(0 0 0 / 0.1);
+  --accent: #2563eb;
+  --shadow: 0 8px 30px rgb(15 23 42 / 0.12);
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-fg: var(--fg);
+  --color-muted: var(--muted);
+  --color-panel: var(--panel);
+  --color-input: var(--input);
+  --color-hover: var(--hover);
+  --color-line: var(--line);
+  --color-accent: var(--accent);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-sans), system-ui, sans-serif;
+}
+
+@layer components {
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    box-shadow: var(--shadow);
+    backdrop-filter: blur(14px) saturate(140%);
+  }
+  .icon-btn {
+    display: grid;
+    place-items: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 8px;
+    color: var(--muted);
+    transition: background 0.15s, color 0.15s;
+  }
+  .icon-btn:hover {
+    background: var(--hover);
+    color: var(--fg);
+  }
+  .status-chip {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 10px;
+    border: 1px solid var(--line);
+    border-radius: 9px;
+    background: var(--input);
+    transition: opacity 0.15s, background 0.15s;
+  }
+  .status-chip:hover {
+    background: var(--hover);
+  }
+}
+
+/* MapLibre controls follow the theme */
+.maplibregl-ctrl-group {
+  background: var(--panel) !important;
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow) !important;
+}
+:root:not([data-theme="light"]) .maplibregl-ctrl-group button .maplibregl-ctrl-icon {
+  filter: invert(1);
+}
+.maplibregl-ctrl-attrib {
+  background: var(--panel) !important;
+  color: var(--muted);
+}
+.maplibregl-ctrl.maplibregl-ctrl-attrib a,
+.maplibregl-ctrl.maplibregl-ctrl-attrib {
+  color: var(--muted);
+}

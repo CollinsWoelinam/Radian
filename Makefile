@@ -31,7 +31,7 @@ proto-lint:
 # Loads .env so services pick up DATABASE_URL, REDIS_URL, JWT_SECRET.
 GO_ENV := set -a && . ../.env && set +a &&
 
-.PHONY: ingest persister simulator test
+.PHONY: ingest persister broadcast simulator test web
 
 ingest:        ## Run the telemetry ingestion WebSocket service (:8081)
 	cd backend && $(GO_ENV) go run ./cmd/ingest
@@ -39,8 +39,15 @@ ingest:        ## Run the telemetry ingestion WebSocket service (:8081)
 persister:     ## Run the Redis Streams -> Postgres writer
 	cd backend && $(GO_ENV) go run ./cmd/persister
 
+broadcast:     ## Run the dashboard fan-out WebSocket service (:8082)
+	cd backend && $(GO_ENV) go run ./cmd/broadcast
+
 simulator:     ## Drive a fake fleet: make simulator ARGS="-n 500"
 	cd backend && $(GO_ENV) go run ./cmd/simulator $(ARGS)
 
 test:
 	cd backend && go test ./...
+
+# --- Web (Next.js) ---------------------------------------------------------
+web:           ## Run the dispatcher dashboard on :3000
+	cd web && npm run dev
