@@ -26,3 +26,21 @@ proto:         ## Generate Go / TS / Dart code from proto/
 
 proto-lint:
 	cd proto && buf lint
+
+# --- Backend (Go) ---------------------------------------------------------
+# Loads .env so services pick up DATABASE_URL, REDIS_URL, JWT_SECRET.
+GO_ENV := set -a && . ../.env && set +a &&
+
+.PHONY: ingest persister simulator test
+
+ingest:        ## Run the telemetry ingestion WebSocket service (:8081)
+	cd backend && $(GO_ENV) go run ./cmd/ingest
+
+persister:     ## Run the Redis Streams -> Postgres writer
+	cd backend && $(GO_ENV) go run ./cmd/persister
+
+simulator:     ## Drive a fake fleet: make simulator ARGS="-n 500"
+	cd backend && $(GO_ENV) go run ./cmd/simulator $(ARGS)
+
+test:
+	cd backend && go test ./...
