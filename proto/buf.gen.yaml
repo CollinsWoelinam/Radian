@@ -1,0 +1,13 @@
+version: v2
+plugins:
+  # Go -> backend/
+  - remote: buf.build/protocolbuffers/go
+    out: ../backend/gen
+    opt: paths=source_relative
+  # TypeScript -> web/
+  - remote: buf.build/bufbuild/es
+    out: ../web/src/gen
+    opt: target=ts
+  # Dart -> mobile/
+  - remote: buf.build/protocolbuffers/dart
+    out: ../mobile/lib/gen

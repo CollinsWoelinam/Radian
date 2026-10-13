@@ -1,0 +1,5 @@
+DROP TABLE IF EXISTS geofence_events;
+DROP TABLE IF EXISTS jobs;
+DROP TYPE IF EXISTS job_status;
+DROP TABLE IF EXISTS geofences;
+DROP TYPE IF EXISTS geofence_kind;

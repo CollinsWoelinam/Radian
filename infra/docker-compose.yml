@@ -1,0 +1,50 @@
+name: radian
+
+services:
+  postgres:
+    # TimescaleDB + PostGIS in one image
+    image: timescale/timescaledb-ha:pg17
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-radian}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-radian}
+      POSTGRES_DB: ${POSTGRES_DB:-radian}
+    ports:
+      - "${POSTGRES_PORT:-5433}:5432"
+    volumes:
+      - pgdata:/home/postgres/pgdata/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-radian} -d ${POSTGRES_DB:-radian}"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  redis:
+    image: redis:7.4-alpine
+    # AOF so Streams survive a restart
+    command: ["redis-server", "--appendonly", "yes", "--appendfsync", "everysec"]
+    ports:
+      - "${REDIS_PORT:-6380}:6379"
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  migrate:
+    image: migrate/migrate:v4.18.1
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./migrations:/migrations:ro
+    command:
+      - "-path=/migrations"
+      - "-database=postgres://${POSTGRES_USER:-radian}:${POSTGRES_PASSWORD:-radian}@postgres:5432/${POSTGRES_DB:-radian}?sslmode=disable"
+      - "up"
+    restart: "no"
+
+volumes:
+  pgdata:
+  redisdata:
