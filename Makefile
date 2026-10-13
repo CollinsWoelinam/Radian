@@ -31,7 +31,13 @@ proto-lint:
 # Loads .env so services pick up DATABASE_URL, REDIS_URL, JWT_SECRET.
 GO_ENV := set -a && . ../.env && set +a &&
 
-.PHONY: ingest persister broadcast simulator test web
+.PHONY: api seed ingest persister broadcast simulator test web mobile-test mobile-e2e-ios
+
+api:           ## Run the REST API (driver login) on :8080
+	cd backend && $(GO_ENV) go run ./cmd/api
+
+seed:          ## Create demo drivers + vehicles (password: radian-demo)
+	cd backend && $(GO_ENV) go run ./cmd/seed
 
 ingest:        ## Run the telemetry ingestion WebSocket service (:8081)
 	cd backend && $(GO_ENV) go run ./cmd/ingest
@@ -51,3 +57,10 @@ test:
 # --- Web (Next.js) ---------------------------------------------------------
 web:           ## Run the dispatcher dashboard on :3000
 	cd web && npm run dev
+
+# --- Mobile (Flutter) ------------------------------------------------------
+mobile-test:   ## Unit tests for the tracking pipeline
+	cd mobile && flutter test test/
+
+mobile-e2e-ios: ## Sign in, drive a simulated route, verify delivery (booted iOS simulator)
+	mobile/tool/e2e_ios.sh
