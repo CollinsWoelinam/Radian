@@ -130,6 +130,9 @@ func (s *Server) handleBatch(ctx context.Context, sess *session, batch *pb.Telem
 
 	res := telemetry.Sanitize(batch.Points, time.Now(), s.limits)
 	s.stats.pointsRejected.Add(int64(res.Rejected))
+	if res.Rejected > 0 {
+		s.log.Info("points rejected", "vehicle_id", sess.vehicleID, "count", res.Rejected, "reasons", res.Reasons)
+	}
 
 	if len(res.Accepted) > 0 {
 		clean, err := proto.Marshal(&pb.TelemetryBatch{Points: res.Accepted, IsBackfill: batch.IsBackfill})

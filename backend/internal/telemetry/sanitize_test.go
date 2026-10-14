@@ -29,6 +29,15 @@ func TestSanitize(t *testing.T) {
 	if res.MaxSeq != 7 {
 		t.Errorf("MaxSeq = %d, want 7", res.MaxSeq)
 	}
+	if want := map[string]int{"null_island": 1, "inaccurate": 1, "out_of_range": 1, "in_future": 1}; len(res.Reasons) != len(want) {
+		t.Errorf("Reasons = %v, want %v", res.Reasons, want)
+	} else {
+		for k, v := range want {
+			if res.Reasons[k] != v {
+				t.Errorf("Reasons[%s] = %d, want %d", k, res.Reasons[k], v)
+			}
+		}
+	}
 	if res.Rejected != 4 {
 		t.Errorf("Rejected = %d, want 4", res.Rejected)
 	}

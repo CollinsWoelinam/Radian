@@ -26,7 +26,8 @@ func DefaultLimits() Limits {
 type Result struct {
 	Accepted []*pb.LocationPoint // sorted by recorded_at
 	Rejected int
-	MaxSeq   int64 // highest seq seen, accepted or not
+	MaxSeq   int64          // highest seq seen, accepted or not
+	Reasons  map[string]int // rejection counts by reason, nil if none
 }
 
 // Sanitize drops invalid points and orders the rest by device GPS time, so
@@ -39,8 +40,12 @@ func Sanitize(points []*pb.LocationPoint, now time.Time, lim Limits) Result {
 
 	for _, p := range points {
 		res.MaxSeq = max(res.MaxSeq, p.GetSeq())
-		if !valid(p, minMs, maxMs, lim.MaxAccuracyM) {
+		if reason := invalid(p, minMs, maxMs, lim.MaxAccuracyM); reason != "" {
 			res.Rejected++
+			if res.Reasons == nil {
+				res.Reasons = make(map[string]int)
+			}
+			res.Reasons[reason]++
 			continue
 		}
 		// Clamp small forward skew so "now" stays the upper bound downstream.
@@ -66,25 +71,28 @@ func Sanitize(points []*pb.LocationPoint, now time.Time, lim Limits) Result {
 	return res
 }
 
-func valid(p *pb.LocationPoint, minMs, maxMs int64, maxAccuracy float64) bool {
+// invalid returns why a point is rejected, or "" if it is acceptable.
+func invalid(p *pb.LocationPoint, minMs, maxMs int64, maxAccuracy float64) string {
 	lat, lon := p.GetLatitude(), p.GetLongitude()
 	switch {
 	case math.IsNaN(lat) || math.IsNaN(lon):
-		return false
+		return "nan_coordinates"
 	case lat < -90 || lat > 90 || lon < -180 || lon > 180:
-		return false
+		return "out_of_range"
 	case lat == 0 && lon == 0: // "Null Island": an uninitialised fix
-		return false
-	case p.RecordedAtMs < minMs || p.RecordedAtMs > maxMs:
-		return false
+		return "null_island"
+	case p.RecordedAtMs < minMs:
+		return "too_old"
+	case p.RecordedAtMs > maxMs:
+		return "in_future"
 	case p.AccuracyM != nil && float64(*p.AccuracyM) > maxAccuracy:
-		return false
+		return "inaccurate"
 	case p.SpeedKmh != nil && (*p.SpeedKmh < 0 || *p.SpeedKmh > 400):
-		return false
+		return "bad_speed"
 	case p.HeadingDeg != nil && *p.HeadingDeg < 0:
-		return false
+		return "bad_heading"
 	case p.BatteryPct != nil && (*p.BatteryPct < 0 || *p.BatteryPct > 100):
-		return false
+		return "bad_battery"
 	}
-	return true
+	return ""
 }

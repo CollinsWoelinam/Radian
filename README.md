@@ -28,7 +28,7 @@ Radian/
 Generated protobuf code lives inside each side that uses it: `backend/gen`, `web/src/gen`,
 `mobile/lib/gen`.
 
-Local ports: Postgres `5433`, Redis `6380`.
+Local ports: Postgres `5434`, Redis `6380`.
 
 ## Getting started
 

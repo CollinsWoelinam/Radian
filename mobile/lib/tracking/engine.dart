@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:battery_plus/battery_plus.dart';
+import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart';
 
 import '../gen/radian/telemetry/v1/telemetry.pb.dart';
@@ -46,6 +47,7 @@ class TrackingEngine {
       token: token,
       onMessage: _onServerMessage,
       onState: (s) {
+        _log('link: ${s.name}');
         if (s == LinkState.online) {
           _wroteSeq = 0;
           _flush();
@@ -55,6 +57,7 @@ class TrackingEngine {
       onAuthRejected: () => _fail('Your session has expired. Sign in again.', authExpired: true),
     );
     _emit(current.copyWith(running: true, queued: await buffer.count()));
+    _log('start: ingest=$ingestUrl queued=${current.queued}');
     _uplink.start();
     _listen();
     _refreshBattery();
@@ -78,11 +81,17 @@ class TrackingEngine {
     _positions?.cancel();
     _keepAlive?.cancel();
     final parked = _motion.mode == MotionMode.parked;
+    _log('gps: ${parked ? 'low-power (parked)' : 'high precision'}');
     _positions = Geolocator.getPositionStream(locationSettings: _settings(parked)).listen(
       (p) => _onFix(_toFix(p)),
-      onError: (Object e) {
+      onError: (Object e) async {
+        _log('location stream error: $e');
+        if (e is LocationServiceDisabledException && await _fallBackToLocationManager()) return;
         if (e is PermissionDeniedException || e is LocationServiceDisabledException) {
           _fail('Location is off or not permitted. Turn it on to stay on shift.');
+        } else {
+          // Surface anything unexpected instead of silently tracking nothing.
+          _emit(current.copyWith(error: 'GPS error: $e'));
         }
       },
     );
@@ -101,11 +110,27 @@ class TrackingEngine {
     }
   }
 
+  bool _useLocationManager = false;
+
+  /// Play Services' fused provider reports "location disabled" when its own
+  /// settings check fails (e.g. Google Location Accuracy off). In the
+  /// foreground it would show a fix-it dialog; a background service can't, so
+  /// fall back to the platform GPS provider if location is actually on.
+  Future<bool> _fallBackToLocationManager() async {
+    if (!Platform.isAndroid || _useLocationManager) return false;
+    if (!await Geolocator.isLocationServiceEnabled()) return false;
+    _useLocationManager = true;
+    _log('fused provider unavailable; falling back to LocationManager');
+    _listen();
+    return true;
+  }
+
   LocationSettings _settings(bool parked) {
     final accuracy = parked ? LocationAccuracy.medium : LocationAccuracy.bestForNavigation;
     final distance = parked ? 50 : 5;
     if (Platform.isAndroid) {
       return AndroidSettings(
+        forceLocationManager: _useLocationManager,
         accuracy: accuracy,
         distanceFilter: distance,
         intervalDuration: Duration(milliseconds: parked ? 30000 : _movingIntervalMs),
@@ -129,14 +154,15 @@ class TrackingEngine {
   Fix? _speedRef;
 
   Fix _toFix(Position p) {
-    var speedKmh = p.speed > 0 ? p.speed * 3.6 : null;
+    // Trust the platform's speed only above walking pace: some providers
+    // (emulator GPS, network fixes) report ~0 even while moving.
+    var speedKmh = p.speed > 0.5 ? p.speed * 3.6 : null;
     double? heading = p.heading >= 0 && p.speed > 0.5 ? p.heading : null;
     final accurate = p.accuracy > 0 && p.accuracy <= 25;
     final ref = _speedRef;
     final dt = ref == null ? 0.0 : p.timestamp.difference(ref.recordedAt).inMilliseconds / 1000;
 
-    // Some sources (network fixes, simulators) report 0 / -1 for speed even
-    // while moving; derive it from the reference fix when both are accurate.
+    // Otherwise derive it from the reference fix when both are accurate.
     if (speedKmh == null && ref != null && accurate && dt >= 1 && dt <= 30) {
       final d = distanceM(ref.lat, ref.lon, p.latitude, p.longitude);
       speedKmh = d / dt * 3.6;
@@ -147,7 +173,7 @@ class TrackingEngine {
       lat: p.latitude,
       lon: p.longitude,
       recordedAt: p.timestamp,
-      speedKmh: speedKmh ?? (p.speed == 0 ? 0 : null),
+      speedKmh: speedKmh ?? (p.speed >= 0 ? p.speed * 3.6 : null),
       headingDeg: heading,
       accuracyM: p.accuracy > 0 ? p.accuracy : null,
       altitudeM: p.altitude != 0 ? p.altitude : null,
@@ -156,7 +182,10 @@ class TrackingEngine {
     return f;
   }
 
+  int _fixes = 0;
+
   Future<void> _onFix(Fix f) async {
+    if (_fixes++ % 30 == 0) _log('fix #$_fixes acc=${f.accuracyM?.round()}m speed=${f.speedKmh?.round()}km/h');
     if (_motion.update(f)) _listen(); // switch between precise and low-power GPS
 
     _emit(current.copyWith(
@@ -230,3 +259,5 @@ class TrackingEngine {
     if (!_status.isClosed) _status.add(s);
   }
 }
+
+void _log(String msg) => debugPrint('[radian.tracker] $msg');

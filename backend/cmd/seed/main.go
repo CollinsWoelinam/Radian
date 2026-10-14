@@ -24,7 +24,7 @@ var demo = []struct{ name, phone, plate, kind string }{
 
 func main() {
 	ctx := context.Background()
-	pool, err := pgxpool.New(ctx, config.String("DATABASE_URL", "postgres://radian:radian@localhost:5433/radian?sslmode=disable"))
+	pool, err := pgxpool.New(ctx, config.String("DATABASE_URL", "postgres://radian:radian@localhost:5434/radian?sslmode=disable"))
 	if err != nil {
 		slog.Error("postgres connect", "err", err)
 		os.Exit(1)
