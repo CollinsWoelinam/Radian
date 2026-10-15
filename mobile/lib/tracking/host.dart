@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:ui';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
@@ -25,10 +26,23 @@ abstract class TrackerHost {
 
   Future<void> init();
   Future<bool> isRunning();
+
+  /// Starts (or resumes) the shift.
   Future<void> start();
+
+  /// Ends the shift at the driver's request.
   Future<void> stop();
+
   Stream<TrackerStatus> get status;
 }
+
+Future<TrackingEngine> _newEngine(Session session) async => TrackingEngine(
+      token: session.token,
+      ingestUrl: AppConfig.ingestUrl,
+      buffer: await PointBuffer.open(),
+      startedAt: await ShiftStore.startedAt(),
+      refreshToken: SessionStore.freshToken,
+    );
 
 // --- Android ----------------------------------------------------------------
 
@@ -37,6 +51,8 @@ const _notificationId = 4207;
 
 class AndroidTrackerHost implements TrackerHost {
   final _service = FlutterBackgroundService();
+  final _status = StreamController<TrackerStatus>.broadcast();
+  TrackerStatus _last = const TrackerStatus();
 
   @override
   Future<void> init() async {
@@ -64,6 +80,13 @@ class AndroidTrackerHost implements TrackerHost {
       ),
       iosConfiguration: IosConfiguration(autoStart: false),
     );
+
+    // One subscription for the app's lifetime; screens listen to _status.
+    _service.on('status').listen((m) {
+      if (m == null) return;
+      _last = TrackerStatus.fromMap(m);
+      _status.add(_last);
+    });
   }
 
   @override
@@ -71,19 +94,31 @@ class AndroidTrackerHost implements TrackerHost {
 
   @override
   Future<void> start() async {
+    await ShiftStore.begin();
     await _service.startService();
   }
 
   @override
   Future<void> stop() async {
+    await ShiftStore.end();
     _service.invoke('stop');
+    // The service's final status message can be lost when it shuts down, so
+    // confirm the stop by polling instead of waiting for that message.
+    final deadline = DateTime.now().add(const Duration(seconds: 10));
+    while (DateTime.now().isBefore(deadline) && await _service.isRunning()) {
+      await Future<void>.delayed(const Duration(milliseconds: 300));
+    }
+    if (_last.running) {
+      _last = _last.copyWith(running: false, link: LinkState.offline);
+      _status.add(_last);
+    }
   }
 
   @override
   Stream<TrackerStatus> get status {
     // Ask a running service to repeat its latest status for a freshly opened UI.
     Future.delayed(const Duration(milliseconds: 100), () => _service.invoke('status_request'));
-    return _service.on('status').where((m) => m != null).map((m) => TrackerStatus.fromMap(m!));
+    return _status.stream;
   }
 }
 
@@ -92,45 +127,54 @@ class AndroidTrackerHost implements TrackerHost {
 Future<void> trackingServiceMain(ServiceInstance service) async {
   DartPluginRegistrant.ensureInitialized();
 
+  // Android may restart a killed service on its own; only track if the
+  // driver is actually on shift.
   final session = await SessionStore.load();
-  if (session == null) {
-    service.invoke('status', const TrackerStatus(error: 'Sign in to start a shift.', authExpired: true).toMap());
+  final onShift = await ShiftStore.startedAt() != null;
+  if (session == null || !onShift) {
+    debugPrint('[radian.tracker] service: not on shift, stopping');
+    if (session == null) {
+      service.invoke('status', const TrackerStatus(error: 'Sign in to start a shift.', authExpired: true).toMap());
+    }
     await service.stopSelf();
     return;
   }
 
-  final engine = TrackingEngine(
-    token: session.token,
-    ingestUrl: AppConfig.ingestUrl,
-    buffer: await PointBuffer.open(),
-  );
+  final engine = await _newEngine(session);
 
   String? lastNotice;
   engine.status.listen((s) {
     service.invoke('status', s.toMap());
-    final notice = _notificationText(s, session.plate);
+    final notice = _notificationText(s);
     if (service is AndroidServiceInstance && notice != lastNotice) {
       lastNotice = notice;
       service.setForegroundNotificationInfo(title: 'On shift · ${session.plate}', content: notice);
     }
-    if (!s.running && s.error != null) service.stopSelf();
+    if (!s.running && s.error != null) {
+      ShiftStore.end();
+      service.stopSelf();
+    }
   });
 
   service.on('status_request').listen((_) => service.invoke('status', engine.current.toMap()));
   service.on('stop').listen((_) async {
+    debugPrint('[radian.tracker] service: stop received');
     await engine.stop();
     service.invoke('status', engine.current.toMap());
+    // Give the final status a moment to reach the app before the isolate dies.
+    await Future<void>.delayed(const Duration(milliseconds: 300));
+    debugPrint('[radian.tracker] service: stopping self');
     await service.stopSelf();
   });
 
   await engine.start();
 }
 
-String _notificationText(TrackerStatus s, String plate) {
+String _notificationText(TrackerStatus s) {
   final link = switch (s.link) {
     LinkState.online => 'Live',
     LinkState.connecting => 'Connecting',
-    LinkState.offline => s.queued > 0 ? 'Offline · ${s.queued} queued' : 'Offline',
+    LinkState.offline => s.queued > 0 ? 'Offline · ${s.queued} saved' : 'Offline',
   };
   final mode = s.mode == MotionMode.parked ? 'Parked · saving battery' : 'Sharing location';
   return '$link · $mode';
@@ -157,21 +201,22 @@ class InProcessTrackerHost implements TrackerHost {
       _status.add(const TrackerStatus(error: 'Sign in to start a shift.', authExpired: true));
       return;
     }
-    final engine = TrackingEngine(
-      token: session.token,
-      ingestUrl: AppConfig.ingestUrl,
-      buffer: await PointBuffer.open(),
-    );
+    await ShiftStore.begin();
+    final engine = await _newEngine(session);
     _engine = engine;
     _sub = engine.status.listen((s) {
       _status.add(s);
-      if (!s.running && s.error != null) _teardown();
+      if (!s.running && s.error != null) {
+        ShiftStore.end();
+        _teardown();
+      }
     });
     await engine.start();
   }
 
   @override
   Future<void> stop() async {
+    await ShiftStore.end();
     final engine = _engine;
     if (engine == null) return;
     await engine.stop();

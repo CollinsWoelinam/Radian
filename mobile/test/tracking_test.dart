@@ -33,6 +33,43 @@ void main() {
     });
   });
 
+  group('LocationFilter jumps', () {
+    // ~0.11° latitude ≈ 12 km; 37.7858,-122.4064 is the simulator default (SF).
+    Fix far(int seconds, {double dLat = 0}) =>
+        Fix(lat: 37.7858 + dLat, lon: -122.4064, recordedAt: t0.add(Duration(seconds: seconds)), accuracyM: 5);
+
+    test('rejects a one-off teleport and keeps tracking from the real spot', () {
+      final f = LocationFilter();
+      expect(f.check(at(0, kmh: 45)), FilterDecision.accept);
+      expect(f.check(far(1)), FilterDecision.jump);
+      expect(f.check(at(2, dLat: 0.0003, kmh: 45)), FilterDecision.accept);
+    });
+
+    test('accepts a new location once it is confirmed by consistent fixes', () {
+      final f = LocationFilter();
+      f.check(at(0, kmh: 45));
+      expect(f.check(far(60)), FilterDecision.jump);
+      expect(f.check(far(61, dLat: 0.0001)), FilterDecision.jump);
+      expect(f.check(far(62, dLat: 0.0002)), FilterDecision.accept);
+      expect(f.check(far(63, dLat: 0.0004)), FilterDecision.accept);
+    });
+
+    test('scattered glitches never confirm each other', () {
+      final f = LocationFilter();
+      f.check(at(0, kmh: 45));
+      expect(f.check(far(1)), FilterDecision.jump);
+      expect(f.check(at(2, dLat: 1.5)), FilterDecision.jump); // somewhere else again
+      expect(f.check(far(3)), FilterDecision.jump);
+    });
+
+    test('a genuine fast highway segment is not a jump', () {
+      final f = LocationFilter();
+      f.check(at(0, kmh: 120));
+      // 0.003° ≈ 333 m in 10 s = 120 km/h
+      expect(f.check(at(10, dLat: 0.003, kmh: 120)), FilterDecision.accept);
+    });
+  });
+
   group('MotionDetector', () {
     test('parks after two slow minutes in one spot, wakes on speed', () {
       final m = MotionDetector();

@@ -29,6 +29,18 @@ GPS stream ─▶ MotionDetector ─▶ LocationFilter ─▶ PointBuffer (SQLit
 | Uplink | `lib/tracking/uplink.dart` | Protobuf WebSocket, jittered reconnect, heartbeats, 401 → sign-in |
 | Host | `lib/tracking/host.dart` | Android: foreground service (own isolate + notification). iOS: in-process, kept alive by background location |
 
+**Reliability features**
+
+- **Pre-shift checklist** (`lib/tracking/readiness.dart`): location on and allowed (required), plus
+  Android notifications, battery-optimisation exemption and brand-specific "keep app running" steps
+  for Tecno/Infinix/itel, Xiaomi, Samsung, Huawei and Oppo-family phones, server reachability and
+  battery level.
+- **GPS glitch filter**: fixes implying > 250 km/h are dropped unless several consistent fixes confirm
+  the new position; implausible platform speeds fall back to a derived speed.
+- **Shift resume**: an active shift is persisted; if the app or service is killed, reopening the app
+  resumes tracking.
+- **Token refresh**: the device token is renewed in the background before it expires.
+
 While-in-use location permission is enough on both platforms: the Android location foreground
 service and iOS background location updates both continue once started in the foreground.
 
@@ -37,4 +49,6 @@ service and iOS background location updates both continue once started in the fo
 ```bash
 flutter test test/            # filter, motion detector, SQLite buffer
 tool/e2e_ios.sh               # full shift on a booted iOS simulator against the local backend
+tool/e2e_android.sh           # same on a running Android emulator
+tool/tour.sh ios <udid>       # screenshot every screen into screenshots/ios (or: android <serial>)
 ```

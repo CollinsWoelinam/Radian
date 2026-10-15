@@ -62,6 +62,7 @@ func main() {
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /v1/auth/driver/login", a.handleDriverLogin)
+	mux.HandleFunc("POST /v1/auth/device/refresh", a.handleDeviceRefresh)
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, _ *http.Request) { w.Write([]byte("ok")) })
 
 	addr := config.String("API_ADDR", ":8080")
@@ -120,6 +121,7 @@ func (a *app) handleDriverLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !a.limiter.allow(req.Phone) {
+		a.log.Warn("driver login rate limited", "phone_suffix", phoneSuffix(req.Phone))
 		writeError(w, http.StatusTooManyRequests, "rate_limited", "Too many attempts. Try again in a minute.")
 		return
 	}
@@ -139,6 +141,7 @@ func (a *app) handleDriverLogin(w http.ResponseWriter, r *http.Request) {
 	).Scan(&resp.Driver.ID, &resp.Driver.FullName, &passwordHash, &vehicleID, &plate, &kind)
 	if errors.Is(err, pgx.ErrNoRows) {
 		bcrypt.CompareHashAndPassword(dummyHash, []byte(req.Password))
+		a.log.Info("driver login failed", "reason", "unknown_phone", "phone_suffix", phoneSuffix(req.Phone))
 		writeError(w, http.StatusUnauthorized, "invalid_credentials", "Phone number or password is incorrect.")
 		return
 	}
@@ -148,6 +151,7 @@ func (a *app) handleDriverLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if bcrypt.CompareHashAndPassword([]byte(passwordHash), []byte(req.Password)) != nil {
+		a.log.Info("driver login failed", "reason", "bad_password", "driver_id", resp.Driver.ID)
 		writeError(w, http.StatusUnauthorized, "invalid_credentials", "Phone number or password is incorrect.")
 		return
 	}
@@ -167,6 +171,57 @@ func (a *app) handleDriverLogin(w http.ResponseWriter, r *http.Request) {
 	a.limiter.reset(req.Phone)
 	a.log.Info("driver login", "driver_id", resp.Driver.ID, "vehicle_id", resp.Vehicle.ID)
 	writeJSON(w, http.StatusOK, resp)
+}
+
+type refreshResponse struct {
+	Token     string    `json:"token"`
+	ExpiresAt time.Time `json:"expires_at"`
+}
+
+// handleDeviceRefresh swaps a still-valid device token for a fresh one, so a
+// driver on a long run of shifts is never signed out mid-shift. It refuses
+// once the vehicle no longer has an active assignment.
+func (a *app) handleDeviceRefresh(w http.ResponseWriter, r *http.Request) {
+	token, ok := strings.CutPrefix(r.Header.Get("Authorization"), "Bearer ")
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "invalid_token", "Sign in again.")
+		return
+	}
+	vehicleID, err := a.tokens.VerifyDevice(token)
+	if err != nil {
+		writeError(w, http.StatusUnauthorized, "invalid_token", "Sign in again.")
+		return
+	}
+	var assigned bool
+	err = a.pool.QueryRow(r.Context(),
+		`SELECT EXISTS (SELECT 1 FROM vehicle_assignments WHERE vehicle_id = $1 AND ended_at IS NULL)`,
+		vehicleID).Scan(&assigned)
+	if err != nil {
+		a.log.Error("refresh query", "err", err)
+		writeError(w, http.StatusInternalServerError, "internal", "Something went wrong. Try again.")
+		return
+	}
+	if !assigned {
+		writeError(w, http.StatusUnauthorized, "no_vehicle", "You are no longer assigned to this vehicle. Sign in again.")
+		return
+	}
+	resp := refreshResponse{ExpiresAt: time.Now().Add(a.tokenTTL).UTC()}
+	if resp.Token, err = a.tokens.IssueDevice(vehicleID, a.tokenTTL); err != nil {
+		a.log.Error("issue token", "err", err)
+		writeError(w, http.StatusInternalServerError, "internal", "Something went wrong. Try again.")
+		return
+	}
+	a.log.Info("device token refreshed", "vehicle_id", vehicleID)
+	writeJSON(w, http.StatusOK, resp)
+}
+
+// phoneSuffix logs only the last 3 digits, enough to correlate attempts
+// without writing full phone numbers to logs.
+func phoneSuffix(p string) string {
+	if len(p) <= 3 {
+		return p
+	}
+	return "…" + p[len(p)-3:]
 }
 
 // normalizePhone keeps digits and a leading +, so "024 000 0001" and

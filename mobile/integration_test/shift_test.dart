@@ -21,6 +21,7 @@ void main() {
 
   testWidgets('driver signs in, goes live, and points are delivered', (t) async {
     await SessionStore.clear();
+    await ShiftStore.end(); // don't auto-resume a shift from a previous run
     app.main();
     await pumpUntil(t, find.text('Sign in'));
 
@@ -36,6 +37,8 @@ void main() {
 
     await t.pump(const Duration(seconds: 30)); // keep driving for a while
     await t.tap(find.text('End shift'));
+    await pumpUntil(t, find.text('End shift?'));
+    await t.tap(find.widgetWithText(FilledButton, 'End shift').last);
     await pumpUntil(t, find.text('Off shift'));
   });
 }

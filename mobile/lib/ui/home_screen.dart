@@ -1,11 +1,15 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:permission_handler/permission_handler.dart' show Permission, PermissionActions, openAppSettings;
 
 import '../auth/session.dart';
 import '../tracking/host.dart';
 import '../tracking/motion.dart';
 import '../tracking/permissions.dart';
+import '../tracking/readiness.dart';
 import '../tracking/status.dart';
 import 'theme.dart';
 
@@ -19,50 +23,129 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   final _host = TrackerHost.instance;
   TrackerStatus _status = const TrackerStatus();
   StreamSubscription<TrackerStatus>? _sub;
   Timer? _clock;
   bool _busy = false;
+  ReadinessReport? _readiness;
+  // Set when a shift was in progress but tracking isn't running (app killed).
+  bool _interrupted = false;
+  // Largest backlog seen since it was last empty, for the upload progress bar.
+  int _backlogPeak = 0;
 
   @override
   void initState() {
     super.initState();
-    _sub = _host.status.listen((s) {
-      if (s.authExpired) {
-        _signOut(); // token expired mid-shift: back to the login screen
-        return;
-      }
-      setState(() => _status = s);
+    WidgetsBinding.instance.addObserver(this);
+    _sub = _host.status.listen(_onStatus);
+    _clock = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted) setState(() {}); // "updated 4s ago", shift timer
     });
-    _host.isRunning().then((r) {
-      if (mounted && r != _status.running) setState(() => _status = _status.copyWith(running: r));
-    });
-    // Re-render "last fix 4s ago" every second.
-    _clock = Timer.periodic(const Duration(seconds: 1), (_) => setState(() {}));
+    _restore();
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _sub?.cancel();
     _clock?.cancel();
     super.dispose();
   }
 
-  Future<void> _toggleShift() async {
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // Back from Settings: the checklist may have changed.
+    if (state == AppLifecycleState.resumed && !_status.running) _recheck();
+  }
+
+  void _onStatus(TrackerStatus s) {
+    if (s.authExpired) {
+      _signOut(); // token rejected mid-shift: back to the login screen
+      return;
+    }
+    if (!mounted) return;
+    setState(() {
+      _status = s;
+      if (s.running) _interrupted = false;
+      _backlogPeak = s.queued == 0 ? 0 : (s.queued > _backlogPeak ? s.queued : _backlogPeak);
+    });
+    if (!s.running) _recheck();
+  }
+
+  /// On launch: pick up a running tracker, or resume a shift that was cut
+  /// short (app or service killed) if permissions still allow it.
+  Future<void> _restore() async {
+    final running = await _host.isRunning();
+    if (running) {
+      if (mounted) setState(() => _status = _status.copyWith(running: true));
+      return;
+    }
+    await _recheck();
+    if (await ShiftStore.startedAt() == null) return;
+    if (_readiness?.canStart ?? false) {
+      await _host.start();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Shift resumed. Tracking is back on.')));
+      }
+    } else if (mounted) {
+      setState(() => _interrupted = true);
+    }
+  }
+
+  Future<void> _recheck() async {
+    final r = await Readiness.check();
+    if (mounted) setState(() => _readiness = r);
+  }
+
+  Future<void> _startShift() async {
     setState(() => _busy = true);
     try {
-      if (_status.running) {
-        await _host.stop();
-        return;
-      }
       final problem = await TrackingPermissions.ensure();
       if (problem != null) {
         if (mounted) _explainPermission(problem);
         return;
       }
+      HapticFeedback.mediumImpact();
       await _host.start();
+    } finally {
+      if (mounted) setState(() => _busy = false);
+      _recheck();
+    }
+  }
+
+  Future<void> _endShift() async {
+    final s = _status;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('End shift?'),
+        content: Text([
+          'You\'ve been on shift ${_duration(s.startedAt)} and driven ${_km(s.distanceM)}.',
+          if (s.queued > 0)
+            '${s.queued} location updates are still saved on this phone. They\'ll upload next time you\'re online.',
+          'Dispatch will stop seeing your vehicle.',
+        ].join('\n\n')),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Keep driving')),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              minimumSize: const Size(0, 44),
+              backgroundColor: Theme.of(ctx).colorScheme.error,
+              foregroundColor: Theme.of(ctx).colorScheme.onError,
+            ),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('End shift'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    setState(() => _busy = true);
+    try {
+      HapticFeedback.mediumImpact();
+      await _host.stop();
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -82,11 +165,11 @@ class _HomeScreenState extends State<HomeScreen> {
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Not now')),
           FilledButton(
-            style: FilledButton.styleFrom(minimumSize: const Size(0, 40)),
+            style: FilledButton.styleFrom(minimumSize: const Size(0, 44)),
             onPressed: () {
               Navigator.pop(ctx);
               if (p == PermissionProblem.denied) {
-                _toggleShift();
+                _startShift();
               } else {
                 TrackingPermissions.openSettings(p);
               }
@@ -98,7 +181,78 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  Future<void> _runAction(CheckAction a) async {
+    switch (a) {
+      case CheckAction.enableLocation:
+        await Geolocator.openLocationSettings();
+      case CheckAction.grantLocation:
+        await Geolocator.requestPermission();
+      case CheckAction.openAppSettings:
+        await Geolocator.openAppSettings();
+      case CheckAction.grantNotifications:
+        await Permission.notification.request();
+      case CheckAction.allowBackground:
+        await Permission.ignoreBatteryOptimizations.request();
+      case CheckAction.phoneSetup:
+        await _showPhoneSetup();
+    }
+    await _recheck();
+  }
+
+  Future<void> _showPhoneSetup() async {
+    final maker = await Readiness.manufacturer();
+    if (!mounted) return;
+    final steps = Readiness.phoneSetupSteps(maker);
+    await showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(24, 0, 24, 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text('Keep Radian running', style: Theme.of(ctx).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700)),
+              const SizedBox(height: 8),
+              Text(
+                'Your phone closes apps in the background to save battery. Do this once so tracking keeps going during shifts.',
+                style: Theme.of(ctx).textTheme.bodyMedium?.copyWith(color: Theme.of(ctx).colorScheme.onSurfaceVariant),
+              ),
+              const SizedBox(height: 16),
+              for (final (i, step) in steps.indexed)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    CircleAvatar(radius: 12, child: Text('${i + 1}', style: const TextStyle(fontSize: 12))),
+                    const SizedBox(width: 12),
+                    Expanded(child: Text(step)),
+                  ]),
+                ),
+              const SizedBox(height: 8),
+              OutlinedButton(
+                style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(48)),
+                onPressed: openAppSettings,
+                child: const Text('Open Radian settings'),
+              ),
+              const SizedBox(height: 8),
+              FilledButton(
+                onPressed: () async {
+                  await Readiness.markPhoneSetupDone();
+                  if (ctx.mounted) Navigator.pop(ctx);
+                },
+                child: const Text('I\'ve done this'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Future<void> _signOut() async {
+    await ShiftStore.end();
     await SessionStore.clear();
     widget.onSignedOut();
   }
@@ -127,78 +281,158 @@ class _HomeScreenState extends State<HomeScreen> {
             tooltip: 'More',
             onSelected: (_) => _signOut(),
             itemBuilder: (_) => [
-              PopupMenuItem(value: 'signout', enabled: !onShift, child: const Text('Sign out')),
+              PopupMenuItem(
+                value: 'signout',
+                enabled: !onShift,
+                child: ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(Icons.logout),
+                  title: const Text('Sign out'),
+                  subtitle: onShift ? const Text('End your shift first') : null,
+                ),
+              ),
             ],
           ),
         ],
       ),
       body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-          children: [
-            _ShiftHero(status: s),
-            if (s.error != null) ...[
-              const SizedBox(height: 12),
-              _Banner(text: s.error!),
-            ],
-            const SizedBox(height: 16),
-            FilledButton.icon(
-              onPressed: _busy ? null : _toggleShift,
-              style: onShift
-                  ? FilledButton.styleFrom(
-                      backgroundColor: theme.colorScheme.errorContainer,
-                      foregroundColor: theme.colorScheme.onErrorContainer,
-                    )
-                  : null,
-              icon: Icon(onShift ? Icons.stop_circle_outlined : Icons.play_circle_outline),
-              label: Text(onShift ? 'End shift' : 'Start shift'),
-            ),
-            const SizedBox(height: 16),
-            GridView.count(
-              crossAxisCount: 2,
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              mainAxisSpacing: 12,
-              crossAxisSpacing: 12,
-              childAspectRatio: 1.55,
-              children: [
-                _Tile(
-                  icon: Icons.cell_tower,
-                  label: 'Connection',
-                  value: switch (s.link) {
-                    LinkState.online => 'Live',
-                    LinkState.connecting => 'Connecting',
-                    LinkState.offline => onShift ? 'No signal' : 'Off',
-                  },
-                  detail: s.queued > 0 ? '${s.queued} points queued' : 'Nothing queued',
-                  color: !onShift ? null : (s.link == LinkState.online ? liveGreen : warnAmber),
-                ),
-                _Tile(
-                  icon: Icons.gps_fixed,
-                  label: 'GPS',
-                  value: s.accuracyM == null ? '—' : '± ${s.accuracyM!.round()} m',
-                  detail: s.mode == MotionMode.parked ? 'Parked · power saving' : 'High precision',
-                ),
-                _Tile(
-                  icon: Icons.speed,
-                  label: 'Speed',
-                  value: s.speedKmh == null ? '—' : '${s.speedKmh!.round()} km/h',
-                  detail: s.lat == null ? 'Waiting for GPS' : '${s.lat!.toStringAsFixed(5)}, ${s.lon!.toStringAsFixed(5)}',
-                ),
-                _Tile(
-                  icon: Icons.schedule,
-                  label: 'Last fix',
-                  value: _ago(s.lastFixAt),
-                  detail: '${s.acked} delivered',
-                ),
+        bottom: false,
+        child: RefreshIndicator(
+          onRefresh: _recheck,
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+            children: [
+              if (onShift) ...[
+                _ShiftHero(status: s),
+                if (_backlogPeak >= 10 && s.queued > 0) ...[
+                  const SizedBox(height: 12),
+                  _UploadBanner(status: s, peak: _backlogPeak),
+                ],
+              ] else
+                _OffHero(readiness: _readiness, interrupted: _interrupted),
+              if (s.error != null) ...[
+                const SizedBox(height: 12),
+                _Banner(text: s.error!),
               ],
-            ),
-          ],
+              const SizedBox(height: 16),
+              if (onShift) _ShiftStats(status: s) else _Checklist(report: _readiness, onAction: _runAction),
+            ],
+          ),
         ),
+      ),
+      bottomNavigationBar: SafeArea(
+        minimum: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+        child: onShift
+            ? FilledButton.icon(
+                onPressed: _busy ? null : _endShift,
+                style: FilledButton.styleFrom(
+                  backgroundColor: theme.colorScheme.errorContainer,
+                  foregroundColor: theme.colorScheme.onErrorContainer,
+                ),
+                icon: const Icon(Icons.stop_circle_outlined),
+                label: const Text('End shift'),
+              )
+            : FilledButton.icon(
+                onPressed: _busy ? null : _startShift,
+                icon: _busy
+                    ? const SizedBox.square(dimension: 20, child: CircularProgressIndicator(strokeWidth: 2.5))
+                    : const Icon(Icons.play_circle_outline),
+                label: Text(_interrupted ? 'Resume shift' : 'Start shift'),
+              ),
       ),
     );
   }
 }
+
+// --- Off shift --------------------------------------------------------------
+
+class _OffHero extends StatelessWidget {
+  const _OffHero({required this.readiness, required this.interrupted});
+
+  final ReadinessReport? readiness;
+  final bool interrupted;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final r = readiness;
+    final (title, subtitle) = interrupted
+        ? ('Shift interrupted', 'Tracking stopped unexpectedly. Fix the items below, then resume.')
+        : r == null
+            ? ('Off shift', 'Checking your phone…')
+            : !r.canStart
+                ? ('Off shift', 'Fix the items marked red to start your shift.')
+                : r.warnings > 0
+                    ? ('Off shift', 'Ready to go. ${r.warnings == 1 ? 'One tip' : '${r.warnings} tips'} below for reliable tracking.')
+                    : ('Off shift', 'All set. Start your shift to share your location with dispatch.');
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Row(children: [
+          _Pulse(color: interrupted ? warnAmber : theme.colorScheme.outline, active: false),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(title, style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700)),
+              const SizedBox(height: 4),
+              Text(subtitle, style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+            ]),
+          ),
+        ]),
+      ),
+    );
+  }
+}
+
+class _Checklist extends StatelessWidget {
+  const _Checklist({required this.report, required this.onAction});
+
+  final ReadinessReport? report;
+  final Future<void> Function(CheckAction) onAction;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final r = report;
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+            child: Text('Before you start', style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
+          ),
+          if (r == null)
+            const Padding(padding: EdgeInsets.all(24), child: Center(child: CircularProgressIndicator()))
+          else
+            for (final item in r.items)
+              ListTile(
+                leading: _CheckIcon(state: item.state),
+                title: Text(item.title, style: const TextStyle(fontWeight: FontWeight.w600)),
+                subtitle: Text(item.detail),
+                trailing: item.action == null
+                    ? null
+                    : TextButton(onPressed: () => onAction(item.action!), child: Text(item.actionLabel ?? 'Fix')),
+              ),
+        ]),
+      ),
+    );
+  }
+}
+
+class _CheckIcon extends StatelessWidget {
+  const _CheckIcon({required this.state});
+  final CheckState state;
+
+  @override
+  Widget build(BuildContext context) => switch (state) {
+        CheckState.ok => const Icon(Icons.check_circle, color: liveGreen, semanticLabel: 'OK'),
+        CheckState.warn => const Icon(Icons.error_outline, color: warnAmber, semanticLabel: 'Recommended'),
+        CheckState.fail => const Icon(Icons.cancel, color: failRed, semanticLabel: 'Required'),
+      };
+}
+
+// --- On shift ---------------------------------------------------------------
 
 class _ShiftHero extends StatelessWidget {
   const _ShiftHero({required this.status});
@@ -208,39 +442,118 @@ class _ShiftHero extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final on = status.running;
-    final live = on && status.link == LinkState.online;
-    final color = !on ? theme.colorScheme.outline : (live ? liveGreen : warnAmber);
-    final title = !on ? 'Off shift' : (live ? 'On shift · Live' : 'On shift · Offline');
-    final subtitle = !on
-        ? 'Start your shift to share your location with dispatch.'
-        : live
-            ? 'Dispatch can see your vehicle in real time.'
-            : 'No connection. Your route is saved and will upload automatically.';
+    final s = status;
+    final live = s.link == LinkState.online;
+    final color = live ? liveGreen : warnAmber;
+    final title = live ? 'On shift · Live' : (s.link == LinkState.connecting ? 'On shift · Connecting' : 'On shift · Offline');
+    final updated = s.lastFixAt == null ? 'Waiting for GPS…' : 'Updated ${_ago(s.lastFixAt)}';
+    final subtitle = live
+        ? 'Dispatch can see your vehicle. $updated'
+        : 'No connection. Your route is saved on this phone and uploads automatically.';
 
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(20),
-        child: Row(
-          children: [
-            _Pulse(color: color, active: live),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(title, style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700)),
-                  const SizedBox(height: 4),
-                  Text(subtitle, style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
-                ],
-              ),
-            ),
-          ],
-        ),
+        child: Row(children: [
+          _Pulse(color: color, active: live),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(title, style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700)),
+              const SizedBox(height: 4),
+              Text(subtitle, style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+            ]),
+          ),
+        ]),
       ),
     );
   }
 }
+
+class _UploadBanner extends StatelessWidget {
+  const _UploadBanner({required this.status, required this.peak});
+
+  final TrackerStatus status;
+  final int peak;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final online = status.link == LinkState.online;
+    final done = peak - status.queued;
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(children: [
+            Icon(online ? Icons.cloud_upload_outlined : Icons.cloud_off_outlined, size: 20),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                online ? 'Uploading your saved route… $done of $peak' : '${status.queued} location updates saved on this phone',
+                style: const TextStyle(fontWeight: FontWeight.w600),
+              ),
+            ),
+          ]),
+          const SizedBox(height: 10),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: LinearProgressIndicator(
+              value: online ? done / peak : null,
+              minHeight: 6,
+              backgroundColor: theme.colorScheme.surfaceContainerHighest,
+            ),
+          ),
+          if (!online) ...[
+            const SizedBox(height: 8),
+            Text('They\'ll upload as soon as you have signal.', style: theme.textTheme.bodySmall),
+          ],
+        ]),
+      ),
+    );
+  }
+}
+
+class _ShiftStats extends StatelessWidget {
+  const _ShiftStats({required this.status});
+
+  final TrackerStatus status;
+
+  @override
+  Widget build(BuildContext context) {
+    final s = status;
+    return GridView.count(
+      crossAxisCount: 2,
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      mainAxisSpacing: 12,
+      crossAxisSpacing: 12,
+      childAspectRatio: 1.55,
+      children: [
+        _Tile(icon: Icons.timer_outlined, label: 'On shift', value: _duration(s.startedAt), detail: 'since ${_clockTime(s.startedAt)}'),
+        _Tile(icon: Icons.route_outlined, label: 'Distance', value: _km(s.distanceM), detail: 'this shift'),
+        _Tile(
+          icon: Icons.speed,
+          label: 'Speed',
+          value: s.speedKmh == null ? '—' : '${s.speedKmh!.round()} km/h',
+          detail: s.mode == MotionMode.parked
+              ? 'Parked · saving battery'
+              : (s.speedKmh ?? 0) >= 5
+                  ? 'Moving'
+                  : 'Stopped',
+        ),
+        _Tile(
+          icon: Icons.gps_fixed,
+          label: 'GPS',
+          value: s.accuracyM == null ? '—' : '± ${s.accuracyM!.round()} m',
+          detail: '${s.acked} delivered',
+        ),
+      ],
+    );
+  }
+}
+
+// --- Shared -----------------------------------------------------------------
 
 class _Pulse extends StatefulWidget {
   const _Pulse({required this.color, required this.active});
@@ -256,16 +569,16 @@ class _PulseState extends State<_Pulse> with SingleTickerProviderStateMixin {
   late final _ctrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 1600));
 
   @override
+  void initState() {
+    super.initState();
+    if (widget.active) _ctrl.repeat();
+  }
+
+  @override
   void didUpdateWidget(covariant _Pulse old) {
     super.didUpdateWidget(old);
     if (widget.active && !_ctrl.isAnimating) _ctrl.repeat();
     if (!widget.active) _ctrl.stop();
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    if (widget.active) _ctrl.repeat();
   }
 
   @override
@@ -280,31 +593,27 @@ class _PulseState extends State<_Pulse> with SingleTickerProviderStateMixin {
       dimension: 44,
       child: AnimatedBuilder(
         animation: _ctrl,
-        builder: (_, _) => Stack(
-          alignment: Alignment.center,
-          children: [
-            if (widget.active)
-              Container(
-                width: 18 + 26 * _ctrl.value,
-                height: 18 + 26 * _ctrl.value,
-                decoration: BoxDecoration(shape: BoxShape.circle, color: widget.color.withValues(alpha: 0.35 * (1 - _ctrl.value))),
-              ),
-            Container(width: 18, height: 18, decoration: BoxDecoration(shape: BoxShape.circle, color: widget.color)),
-          ],
-        ),
+        builder: (_, _) => Stack(alignment: Alignment.center, children: [
+          if (widget.active)
+            Container(
+              width: 18 + 26 * _ctrl.value,
+              height: 18 + 26 * _ctrl.value,
+              decoration: BoxDecoration(shape: BoxShape.circle, color: widget.color.withValues(alpha: 0.35 * (1 - _ctrl.value))),
+            ),
+          Container(width: 18, height: 18, decoration: BoxDecoration(shape: BoxShape.circle, color: widget.color)),
+        ]),
       ),
     );
   }
 }
 
 class _Tile extends StatelessWidget {
-  const _Tile({required this.icon, required this.label, required this.value, required this.detail, this.color});
+  const _Tile({required this.icon, required this.label, required this.value, required this.detail});
 
   final IconData icon;
   final String label;
   final String value;
   final String detail;
-  final Color? color;
 
   @override
   Widget build(BuildContext context) {
@@ -322,11 +631,10 @@ class _Tile extends StatelessWidget {
               const SizedBox(width: 6),
               Text(label, style: theme.textTheme.labelMedium?.copyWith(color: muted)),
             ]),
-            Text(
-              value,
-              style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700, color: color),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerLeft,
+              child: Text(value, style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700)),
             ),
             Text(detail, style: theme.textTheme.bodySmall?.copyWith(color: muted), maxLines: 1, overflow: TextOverflow.ellipsis),
           ],
@@ -359,11 +667,24 @@ class _Banner extends StatelessWidget {
 String _ago(DateTime? t) {
   if (t == null) return '—';
   final s = DateTime.now().difference(t).inSeconds;
-  if (s < 5) return 'Just now';
+  if (s < 5) return 'just now';
   if (s < 60) return '${s}s ago';
   if (s < 3600) return '${s ~/ 60}m ago';
   return '${s ~/ 3600}h ago';
 }
+
+String _duration(DateTime? since) {
+  if (since == null) return '—';
+  final d = DateTime.now().difference(since);
+  if (d.inMinutes < 1) return 'under a minute';
+  if (d.inHours < 1) return '${d.inMinutes} min';
+  return '${d.inHours}h ${d.inMinutes % 60}m';
+}
+
+String _clockTime(DateTime? t) =>
+    t == null ? '—' : '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
+
+String _km(double m) => m < 1000 ? '${m.round()} m' : '${(m / 1000).toStringAsFixed(1)} km';
 
 String _kind(String k) => switch (k) {
       'MOTORBIKE' => 'Motorbike',

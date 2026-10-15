@@ -44,6 +44,8 @@ dependencies:
   http: ^1.6.0
   battery_plus: ^7.1.2
   fixnum: ^1.1.1
+  permission_handler: ^12.0.1
+  device_info_plus: ^13.3.0
 
 dev_dependencies:
   flutter_test:
@@ -58,6 +60,8 @@ dev_dependencies:
   # rules and activating additional ones.
   flutter_lints: ^6.0.0
   sqflite_common_ffi: ^2.4.0+3
+  flutter_launcher_icons: ^0.14.4
+  flutter_native_splash: ^2.4.7
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
@@ -100,3 +104,23 @@ flutter:
   #
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/to/font-from-package
+
+flutter_launcher_icons:
+  image_path: assets/branding/icon.png
+  android: true
+  adaptive_icon_background: "#2563EB"
+  adaptive_icon_foreground: assets/branding/icon_foreground.png
+  ios: true
+  remove_alpha_ios: true
+
+flutter_native_splash:
+  color: "#F4F6F9"
+  image: assets/branding/splash.png
+  color_dark: "#0B0F14"
+  image_dark: assets/branding/splash.png
+  android_12:
+    color: "#F4F6F9"
+    color_dark: "#0B0F14"
+    image: assets/branding/icon_foreground_splash.png
+    icon_background_color: "#2563EB"
+    icon_background_color_dark: "#2563EB"

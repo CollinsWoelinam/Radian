@@ -125,7 +125,15 @@ class _Logo extends StatelessWidget {
       child: Container(
         width: 56,
         height: 56,
-        decoration: BoxDecoration(color: brandBlue, borderRadius: BorderRadius.circular(16)),
+        // Same gradient as the app icon.
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(16),
+          gradient: const LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [brandBlue, Color(0xFF1D4ED8)],
+          ),
+        ),
         child: const Icon(Icons.near_me_rounded, color: Colors.white, size: 30),
       ),
     );

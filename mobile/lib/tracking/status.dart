@@ -19,6 +19,8 @@ class TrackerStatus {
     this.lastFixAt,
     this.error,
     this.authExpired = false,
+    this.startedAt,
+    this.distanceM = 0,
   });
 
   final bool running;
@@ -36,6 +38,10 @@ class TrackerStatus {
   final String? error;
   /// The device token was rejected; the driver must sign in again.
   final bool authExpired;
+  /// When the shift started (survives resumes).
+  final DateTime? startedAt;
+  /// Distance covered by accepted fixes since the tracker started.
+  final double distanceM;
 
   TrackerStatus copyWith({
     bool? running,
@@ -50,6 +56,8 @@ class TrackerStatus {
     double? accuracyM,
     DateTime? lastFixAt,
     String? error,
+    DateTime? startedAt,
+    double? distanceM,
   }) =>
       TrackerStatus(
         running: running ?? this.running,
@@ -65,6 +73,8 @@ class TrackerStatus {
         lastFixAt: lastFixAt ?? this.lastFixAt,
         error: error ?? this.error,
         authExpired: authExpired,
+        startedAt: startedAt ?? this.startedAt,
+        distanceM: distanceM ?? this.distanceM,
       );
 
   Map<String, dynamic> toMap() => {
@@ -81,6 +91,8 @@ class TrackerStatus {
         'lastFixAt': lastFixAt?.millisecondsSinceEpoch,
         'error': error,
         'authExpired': authExpired,
+        'startedAt': startedAt?.millisecondsSinceEpoch,
+        'distanceM': distanceM,
       };
 
   factory TrackerStatus.fromMap(Map<String, dynamic> m) => TrackerStatus(
@@ -97,5 +109,7 @@ class TrackerStatus {
         lastFixAt: m['lastFixAt'] == null ? null : DateTime.fromMillisecondsSinceEpoch(m['lastFixAt'] as int),
         error: m['error'] as String?,
         authExpired: m['authExpired'] as bool? ?? false,
+        startedAt: m['startedAt'] == null ? null : DateTime.fromMillisecondsSinceEpoch(m['startedAt'] as int),
+        distanceM: (m['distanceM'] as num?)?.toDouble() ?? 0,
       );
 }

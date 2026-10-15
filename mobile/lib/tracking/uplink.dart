@@ -21,7 +21,8 @@ class Uplink {
   });
 
   final String url;
-  final String token;
+  /// Used for the next connection attempt; updated when the token is refreshed.
+  String token;
   final void Function(ServerMessage) onMessage;
   final void Function(LinkState) onState;
   final void Function() onAuthRejected;

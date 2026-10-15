@@ -17,11 +17,25 @@ import 'uplink.dart';
 /// outbox -> WebSocket. Runs inside the Android foreground service, or in the
 /// app process on iOS (kept alive by background location updates).
 class TrackingEngine {
-  TrackingEngine({required this.token, required this.ingestUrl, required this.buffer});
+  TrackingEngine({
+    required this.token,
+    required this.ingestUrl,
+    required this.buffer,
+    this.startedAt,
+    this.refreshToken,
+  });
 
   final String token;
   final String ingestUrl;
   final PointBuffer buffer;
+  final DateTime? startedAt;
+
+  /// Returns a token valid for a while yet (refreshing it if needed), so a
+  /// long-running shift never hits token expiry.
+  final Future<String?> Function()? refreshToken;
+
+  /// Platform speeds above this are glitches; fall back to deriving speed.
+  static const _maxPlausibleKmh = 250.0;
 
   final _status = StreamController<TrackerStatus>.broadcast();
   Stream<TrackerStatus> get status => _status.stream;
@@ -34,6 +48,8 @@ class TrackingEngine {
 
   StreamSubscription<Position>? _positions;
   Timer? _keepAlive;
+  Timer? _tokenTimer;
+  Fix? _lastAccepted;
   int _movingIntervalMs = 2000;
   int? _batteryPct;
   // Highest seq written on the current connection; reset on reconnect so
@@ -56,18 +72,31 @@ class TrackingEngine {
       },
       onAuthRejected: () => _fail('Your session has expired. Sign in again.', authExpired: true),
     );
-    _emit(current.copyWith(running: true, queued: await buffer.count()));
+    _emit(current.copyWith(running: true, queued: await buffer.count(), startedAt: startedAt ?? DateTime.now()));
     _log('start: ingest=$ingestUrl queued=${current.queued}');
     _uplink.start();
     _listen();
     _refreshBattery();
+    _renewToken();
+    _tokenTimer = Timer.periodic(const Duration(hours: 1), (_) => _renewToken());
   }
 
   Future<void> stop() async {
+    _log('stop: requested');
     _keepAlive?.cancel();
+    _tokenTimer?.cancel();
     await _positions?.cancel();
     await _uplink.stop();
     _emit(current.copyWith(running: false, link: LinkState.offline));
+    _log('stop: done (queued=${current.queued})');
+  }
+
+  Future<void> _renewToken() async {
+    final fresh = await refreshToken?.call();
+    if (fresh != null && fresh != _uplink.token) {
+      _uplink.token = fresh;
+      _log('device token refreshed');
+    }
   }
 
   Future<void> _fail(String message, {bool authExpired = false}) async {
@@ -156,7 +185,7 @@ class TrackingEngine {
   Fix _toFix(Position p) {
     // Trust the platform's speed only above walking pace: some providers
     // (emulator GPS, network fixes) report ~0 even while moving.
-    var speedKmh = p.speed > 0.5 ? p.speed * 3.6 : null;
+    var speedKmh = p.speed > 0.5 && p.speed * 3.6 <= _maxPlausibleKmh ? p.speed * 3.6 : null;
     double? heading = p.heading >= 0 && p.speed > 0.5 ? p.heading : null;
     final accurate = p.accuracy > 0 && p.accuracy <= 25;
     final ref = _speedRef;
@@ -165,15 +194,18 @@ class TrackingEngine {
     // Otherwise derive it from the reference fix when both are accurate.
     if (speedKmh == null && ref != null && accurate && dt >= 1 && dt <= 30) {
       final d = distanceM(ref.lat, ref.lon, p.latitude, p.longitude);
-      speedKmh = d / dt * 3.6;
-      if (d > 5) heading = bearingDeg(ref.lat, ref.lon, p.latitude, p.longitude);
+      final derived = d / dt * 3.6;
+      if (derived <= _maxPlausibleKmh) {
+        speedKmh = derived;
+        if (d > 5) heading = bearingDeg(ref.lat, ref.lon, p.latitude, p.longitude);
+      }
     }
 
     final f = Fix(
       lat: p.latitude,
       lon: p.longitude,
       recordedAt: p.timestamp,
-      speedKmh: speedKmh ?? (p.speed >= 0 ? p.speed * 3.6 : null),
+      speedKmh: speedKmh ?? (p.speed >= 0 && p.speed <= 0.5 ? p.speed * 3.6 : null),
       headingDeg: heading,
       accuracyM: p.accuracy > 0 ? p.accuracy : null,
       altitudeM: p.altitude != 0 ? p.altitude : null,
@@ -186,6 +218,12 @@ class TrackingEngine {
 
   Future<void> _onFix(Fix f) async {
     if (_fixes++ % 30 == 0) _log('fix #$_fixes acc=${f.accuracyM?.round()}m speed=${f.speedKmh?.round()}km/h');
+
+    final decision = _filter.check(f);
+    if (decision == FilterDecision.jump) {
+      _log('dropped GPS jump to ${f.lat.toStringAsFixed(4)},${f.lon.toStringAsFixed(4)}');
+      return; // a glitch: don't show it, move on it, or send it
+    }
     if (_motion.update(f)) _listen(); // switch between precise and low-power GPS
 
     _emit(current.copyWith(
@@ -197,10 +235,25 @@ class TrackingEngine {
       mode: _motion.mode,
     ));
 
-    if (_filter.check(f) != FilterDecision.accept) return;
+    if (decision != FilterDecision.accept) return;
+    final prev = _lastAccepted;
+    _lastAccepted = f;
     await buffer.add(f.toPoint(seq: 0, batteryPct: _batteryPct));
-    _emit(current.copyWith(queued: current.queued + 1));
+    _emit(current.copyWith(
+      queued: current.queued + 1,
+      distanceM: current.distanceM + _drivenM(prev, f),
+    ));
     _flush();
+  }
+
+  /// Distance to add to the shift total. A confirmed relocation (the phone
+  /// was off while the vehicle moved) isn't counted as driven.
+  double _drivenM(Fix? prev, Fix f) {
+    if (prev == null) return 0;
+    final d = fixDistanceM(prev, f);
+    final secs = f.recordedAt.difference(prev.recordedAt).inMilliseconds / 1000;
+    if (secs <= 0 || d / secs * 3.6 > _maxPlausibleKmh) return 0;
+    return d;
   }
 
   // --- Upload ---------------------------------------------------------------
