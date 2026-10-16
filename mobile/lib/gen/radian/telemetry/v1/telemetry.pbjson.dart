@@ -279,6 +279,15 @@ const ServerMessage$json = {
       '9': 0,
       '10': 'jobOffer'
     },
+    {
+      '1': 'job_cancelled',
+      '3': 4,
+      '4': 1,
+      '5': 11,
+      '6': '.radian.telemetry.v1.JobCancelled',
+      '9': 0,
+      '10': 'jobCancelled'
+    },
   ],
   '8': [
     {'1': 'payload'},
@@ -290,7 +299,8 @@ final $typed_data.Uint8List serverMessageDescriptor = $convert.base64Decode(
     'Cg1TZXJ2ZXJNZXNzYWdlEjEKA2FjaxgBIAEoCzIdLnJhZGlhbi50ZWxlbWV0cnkudjEuQmF0Y2'
     'hBY2tIAFIDYWNrEj0KBmNvbmZpZxgCIAEoCzIjLnJhZGlhbi50ZWxlbWV0cnkudjEuVHJhY2tp'
     'bmdDb25maWdIAFIGY29uZmlnEjwKCWpvYl9vZmZlchgDIAEoCzIdLnJhZGlhbi50ZWxlbWV0cn'
-    'kudjEuSm9iT2ZmZXJIAFIIam9iT2ZmZXJCCQoHcGF5bG9hZA==');
+    'kudjEuSm9iT2ZmZXJIAFIIam9iT2ZmZXISSAoNam9iX2NhbmNlbGxlZBgEIAEoCzIhLnJhZGlh'
+    'bi50ZWxlbWV0cnkudjEuSm9iQ2FuY2VsbGVkSABSDGpvYkNhbmNlbGxlZEIJCgdwYXlsb2Fk');
 
 @$core.Deprecated('Use geoPointDescriptor instead')
 const GeoPoint$json = {
@@ -342,6 +352,8 @@ const JobOffer$json = {
     {'1': 'priority', '3': 6, '4': 1, '5': 5, '10': 'priority'},
     {'1': 'eta_seconds', '3': 7, '4': 1, '5': 5, '10': 'etaSeconds'},
     {'1': 'notes', '3': 8, '4': 1, '5': 9, '10': 'notes'},
+    {'1': 'expires_at_ms', '3': 9, '4': 1, '5': 3, '10': 'expiresAtMs'},
+    {'1': 'number', '3': 10, '4': 1, '5': 3, '10': 'number'},
   ],
   '8': [
     {'1': '_dropoff'},
@@ -356,8 +368,23 @@ final $typed_data.Uint8List jobOfferDescriptor = $convert.base64Decode(
     'CVINcGlja3VwQWRkcmVzcxI8Cgdkcm9wb2ZmGAQgASgLMh0ucmFkaWFuLnRlbGVtZXRyeS52MS'
     '5HZW9Qb2ludEgAUgdkcm9wb2ZmiAEBEiwKD2Ryb3BvZmZfYWRkcmVzcxgFIAEoCUgBUg5kcm9w'
     'b2ZmQWRkcmVzc4gBARIaCghwcmlvcml0eRgGIAEoBVIIcHJpb3JpdHkSHwoLZXRhX3NlY29uZH'
-    'MYByABKAVSCmV0YVNlY29uZHMSFAoFbm90ZXMYCCABKAlSBW5vdGVzQgoKCF9kcm9wb2ZmQhIK'
-    'EF9kcm9wb2ZmX2FkZHJlc3M=');
+    'MYByABKAVSCmV0YVNlY29uZHMSFAoFbm90ZXMYCCABKAlSBW5vdGVzEiIKDWV4cGlyZXNfYXRf'
+    'bXMYCSABKANSC2V4cGlyZXNBdE1zEhYKBm51bWJlchgKIAEoA1IGbnVtYmVyQgoKCF9kcm9wb2'
+    'ZmQhIKEF9kcm9wb2ZmX2FkZHJlc3M=');
+
+@$core.Deprecated('Use jobCancelledDescriptor instead')
+const JobCancelled$json = {
+  '1': 'JobCancelled',
+  '2': [
+    {'1': 'job_id', '3': 1, '4': 1, '5': 9, '10': 'jobId'},
+    {'1': 'reason', '3': 2, '4': 1, '5': 9, '10': 'reason'},
+  ],
+};
+
+/// Descriptor for `JobCancelled`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List jobCancelledDescriptor = $convert.base64Decode(
+    'CgxKb2JDYW5jZWxsZWQSFQoGam9iX2lkGAEgASgJUgVqb2JJZBIWCgZyZWFzb24YAiABKAlSBn'
+    'JlYXNvbg==');
 
 @$core.Deprecated('Use jobStatusUpdateDescriptor instead')
 const JobStatusUpdate$json = {
@@ -503,6 +530,18 @@ final $typed_data.Uint8List fleetUpdateDescriptor = $convert.base64Decode(
     'ZWhpY2xlSWRzEiQKDnNlcnZlcl90aW1lX21zGAMgASgDUgxzZXJ2ZXJUaW1lTXMSHwoLaXNfc2'
     '5hcHNob3QYBCABKAhSCmlzU25hcHNob3Q=');
 
+@$core.Deprecated('Use jobsChangedDescriptor instead')
+const JobsChanged$json = {
+  '1': 'JobsChanged',
+  '2': [
+    {'1': 'job_ids', '3': 1, '4': 3, '5': 9, '10': 'jobIds'},
+  ],
+};
+
+/// Descriptor for `JobsChanged`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List jobsChangedDescriptor = $convert
+    .base64Decode('CgtKb2JzQ2hhbmdlZBIXCgdqb2JfaWRzGAEgAygJUgZqb2JJZHM=');
+
 @$core.Deprecated('Use dashboardServerMessageDescriptor instead')
 const DashboardServerMessage$json = {
   '1': 'DashboardServerMessage',
@@ -516,6 +555,15 @@ const DashboardServerMessage$json = {
       '9': 0,
       '10': 'fleetUpdate'
     },
+    {
+      '1': 'jobs_changed',
+      '3': 2,
+      '4': 1,
+      '5': 11,
+      '6': '.radian.telemetry.v1.JobsChanged',
+      '9': 0,
+      '10': 'jobsChanged'
+    },
   ],
   '8': [
     {'1': 'payload'},
@@ -525,4 +573,6 @@ const DashboardServerMessage$json = {
 /// Descriptor for `DashboardServerMessage`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List dashboardServerMessageDescriptor = $convert.base64Decode(
     'ChZEYXNoYm9hcmRTZXJ2ZXJNZXNzYWdlEkUKDGZsZWV0X3VwZGF0ZRgBIAEoCzIgLnJhZGlhbi'
-    '50ZWxlbWV0cnkudjEuRmxlZXRVcGRhdGVIAFILZmxlZXRVcGRhdGVCCQoHcGF5bG9hZA==');
+    '50ZWxlbWV0cnkudjEuRmxlZXRVcGRhdGVIAFILZmxlZXRVcGRhdGUSRQoMam9ic19jaGFuZ2Vk'
+    'GAIgASgLMiAucmFkaWFuLnRlbGVtZXRyeS52MS5Kb2JzQ2hhbmdlZEgAUgtqb2JzQ2hhbmdlZE'
+    'IJCgdwYXlsb2Fk');

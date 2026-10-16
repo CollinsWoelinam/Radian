@@ -5,6 +5,9 @@ ingests and stores it in TimescaleDB + PostGIS, and a Next.js dashboard renders 
 with MapLibre + deck.gl.
 
 ```
+Flutter driver app ──(protobuf / WebSocket)──> ingest (Go) <── job offers (Redis Pub/Sub) ── api (Go)
+                                                                                           │ dispatch:
+                                                                                           │ PostGIS KNN + OSRM drive times
 Flutter driver app ──(protobuf / WebSocket)──> ingest (Go)
                                                  │ XADD
                                                  ▼
@@ -36,9 +39,12 @@ Requires Docker, Go 1.25+ and [buf](https://buf.build/docs/installation).
 
 ```bash
 cp .env.example .env              # then set JWT_SECRET (openssl rand -hex 32)
-make up                           # Postgres + Redis + migrations
+make osrm-data                    # once: Ghana road network for routing (~10 min)
+make up                           # Postgres + Redis + OSRM + migrations
+make seed                         # demo driver/dispatcher accounts (password: radian-demo)
 
 # one terminal each
+make api                          # REST: sign-in, jobs, dispatch on :8080
 make ingest                       # device WebSocket ingestion on :8081
 make persister                    # Redis Streams -> TimescaleDB
 make broadcast                    # dashboard fan-out on :8082
@@ -48,6 +54,26 @@ make web                          # dashboard on http://localhost:3000
 curl localhost:8081/metrics
 make psql
 ```
+
+## Dispatch
+
+1. A dispatcher creates a job on the dashboard (click pickup and optional drop-off on the map).
+2. The api finds available vehicles near the pickup: online in the last 2 minutes, with a driver
+   assigned, not already on or offered a job, within 30 km (PostGIS `ST_DWithin` + KNN `<->`).
+3. It ranks them by **road drive time** using OSRM's table service (falls back to a straight-line
+   estimate if OSRM is down) and offers the job to the fastest one for 30 seconds.
+4. The offer reaches the driver's phone via Redis Pub/Sub → ingest → WebSocket (plus a REST poll as
+   a safety net) and an Android heads-up notification.
+5. Decline or timeout → the next-best vehicle. No one available → retried every 15 s.
+6. The driver works the job: accept → arrived → (to drop-off) → complete. Every step lands in a
+   `job_events` timeline, and dashboards are told to refresh via `JobsChanged` pushes.
+
+Row locks (`FOR UPDATE` / `SKIP LOCKED`) keep this safe with several api instances; a partial
+unique index guarantees a vehicle can only have one active job.
+
+Demo logins: dashboard `dispatch@radian.dev`, driver app `0240000001`, password `radian-demo`.
+The simulator's drivers accept ~85% of offers and drive real roads, so dispatch can be watched
+end to end.
 
 ## Web dashboard
 

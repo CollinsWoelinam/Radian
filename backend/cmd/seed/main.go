@@ -14,7 +14,10 @@ import (
 	"github.com/CollinsWoelinam/Radian/backend/internal/config"
 )
 
-const demoPassword = "radian-demo"
+const (
+	demoPassword        = "radian-demo"
+	demoDispatcherEmail = "dispatch@radian.dev"
+)
 
 var demo = []struct{ name, phone, plate, kind string }{
 	{"Kwame Mensah", "0240000001", "GR 1024-26", "VAN"},
@@ -78,5 +81,14 @@ func main() {
 		}
 		fmt.Printf("%-14s phone %s  vehicle %-11s (%s)\n", d.name, d.phone, d.plate, d.kind)
 	}
-	fmt.Printf("\nPassword for all demo drivers: %s\n", demoPassword)
+	_, err = pool.Exec(ctx, `
+		INSERT INTO dispatchers (email, full_name, password_hash) VALUES ($1, $2, $3)
+		ON CONFLICT (email) DO UPDATE SET full_name = EXCLUDED.full_name, password_hash = EXCLUDED.password_hash`,
+		demoDispatcherEmail, "Esi Asante", hash)
+	if err != nil {
+		slog.Error("seed dispatcher", "err", err)
+		os.Exit(1)
+	}
+	fmt.Printf("%-14s email %s (dashboard)\n", "Esi Asante", demoDispatcherEmail)
+	fmt.Printf("\nPassword for all demo accounts: %s\n", demoPassword)
 }

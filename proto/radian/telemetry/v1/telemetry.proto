@@ -64,6 +64,7 @@ message ServerMessage {
     BatchAck ack = 1;
     TrackingConfig config = 2;
     JobOffer job_offer = 3;
+    JobCancelled job_cancelled = 4;
   }
 }
 
@@ -85,6 +86,16 @@ message JobOffer {
   int32 priority = 6;
   int32 eta_seconds = 7;
   string notes = 8;
+  // The offer lapses (and goes to the next driver) at this time, Unix ms.
+  int64 expires_at_ms = 9;
+  // Human-friendly job number shown as "#1042".
+  int64 number = 10;
+}
+
+// The dispatcher cancelled a job this vehicle was offered or working on.
+message JobCancelled {
+  string job_id = 1;
+  string reason = 2;
 }
 
 enum JobStatus {
@@ -155,8 +166,14 @@ message FleetUpdate {
   bool is_snapshot = 4;
 }
 
+// Something about a job changed; dashboards refetch the job list.
+message JobsChanged {
+  repeated string job_ids = 1;
+}
+
 message DashboardServerMessage {
   oneof payload {
     FleetUpdate fleet_update = 1;
+    JobsChanged jobs_changed = 2;
   }
 }

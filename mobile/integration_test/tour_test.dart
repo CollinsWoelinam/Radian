@@ -13,6 +13,10 @@ Future<void> pumpUntil(WidgetTester t, Finder f, {Duration timeout = const Durat
     await t.pump(const Duration(milliseconds: 250));
     if (f.evaluate().isNotEmpty) return;
   }
+  // Let tool/tour.sh capture what the screen showed when we gave up.
+  // ignore: avoid_print
+  print('TOUR:timeout');
+  await t.pump(const Duration(seconds: 2));
   throw TestFailure('Timed out waiting for $f');
 }
 

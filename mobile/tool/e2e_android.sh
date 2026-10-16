@@ -48,7 +48,9 @@ trap 'kill $DRIVER 2>/dev/null' EXIT
 # flutter test reinstalls with `adb install -r`, which keeps them. (Granting
 # while the app is starting can restart its activity, so do it once, here.)
 if ! "$ADB" -s "$SERIAL" shell pm list packages | grep -q "$PKG"; then
-  "$ADB" -s "$SERIAL" install -r build/app/outputs/flutter-apk/app-debug.apk >/dev/null
+  APK=build/app/outputs/flutter-apk/app-debug.apk
+  [ -f "$APK" ] || LANG=en_US.UTF-8 flutter build apk --debug
+  "$ADB" -s "$SERIAL" install -r "$APK" >/dev/null
 fi
 for p in ACCESS_FINE_LOCATION ACCESS_COARSE_LOCATION POST_NOTIFICATIONS; do
   "$ADB" -s "$SERIAL" shell pm grant $PKG android.permission.$p

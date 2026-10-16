@@ -168,6 +168,16 @@ func (h *Hub) Tick(now time.Time) {
 	clear(h.dirty)
 }
 
+// Notify sends a message to every subscribed dashboard. Dropped for a client
+// whose queue is full; it resyncs from its next snapshot and REST refetch.
+func (h *Hub) Notify(m *pb.DashboardServerMessage) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	for c := range h.clients {
+		c.enqueueMsg(m)
+	}
+}
+
 func (h *Hub) Stats() (vehicles, clients int) {
 	h.mu.Lock()
 	defer h.mu.Unlock()

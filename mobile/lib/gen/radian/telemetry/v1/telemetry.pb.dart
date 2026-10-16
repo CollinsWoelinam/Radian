@@ -568,18 +568,20 @@ class TrackingConfig extends $pb.GeneratedMessage {
   void clearStationarySpeedKmh() => $_clearField(4);
 }
 
-enum ServerMessage_Payload { ack, config, jobOffer, notSet }
+enum ServerMessage_Payload { ack, config, jobOffer, jobCancelled, notSet }
 
 class ServerMessage extends $pb.GeneratedMessage {
   factory ServerMessage({
     BatchAck? ack,
     TrackingConfig? config,
     JobOffer? jobOffer,
+    JobCancelled? jobCancelled,
   }) {
     final result = ServerMessage._();
     if (ack != null) result.ack = ack;
     if (config != null) result.config = config;
     if (jobOffer != null) result.jobOffer = jobOffer;
+    if (jobCancelled != null) result.jobCancelled = jobCancelled;
     return result;
   }
 
@@ -597,6 +599,7 @@ class ServerMessage extends $pb.GeneratedMessage {
     1: ServerMessage_Payload.ack,
     2: ServerMessage_Payload.config,
     3: ServerMessage_Payload.jobOffer,
+    4: ServerMessage_Payload.jobCancelled,
     0: ServerMessage_Payload.notSet
   };
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
@@ -604,13 +607,15 @@ class ServerMessage extends $pb.GeneratedMessage {
       package:
           const $pb.PackageName(_omitMessageNames ? '' : 'radian.telemetry.v1'),
       createEmptyInstance: ServerMessage.$_createMessage)
-    ..oo(0, [1, 2, 3])
+    ..oo(0, [1, 2, 3, 4])
     ..aOM<BatchAck>(1, _omitFieldNames ? '' : 'ack',
         subBuilder: BatchAck.$_createMessage)
     ..aOM<TrackingConfig>(2, _omitFieldNames ? '' : 'config',
         subBuilder: TrackingConfig.$_createMessage)
     ..aOM<JobOffer>(3, _omitFieldNames ? '' : 'jobOffer',
         subBuilder: JobOffer.$_createMessage)
+    ..aOM<JobCancelled>(4, _omitFieldNames ? '' : 'jobCancelled',
+        subBuilder: JobCancelled.$_createMessage)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -638,11 +643,13 @@ class ServerMessage extends $pb.GeneratedMessage {
   @$pb.TagNumber(1)
   @$pb.TagNumber(2)
   @$pb.TagNumber(3)
+  @$pb.TagNumber(4)
   ServerMessage_Payload whichPayload() =>
       _ServerMessage_PayloadByTag[$_whichOneof(0)]!;
   @$pb.TagNumber(1)
   @$pb.TagNumber(2)
   @$pb.TagNumber(3)
+  @$pb.TagNumber(4)
   void clearPayload() => $_clearField($_whichOneof(0));
 
   @$pb.TagNumber(1)
@@ -677,6 +684,17 @@ class ServerMessage extends $pb.GeneratedMessage {
   void clearJobOffer() => $_clearField(3);
   @$pb.TagNumber(3)
   JobOffer ensureJobOffer() => $_ensure(2);
+
+  @$pb.TagNumber(4)
+  JobCancelled get jobCancelled => $_getN(3);
+  @$pb.TagNumber(4)
+  set jobCancelled(JobCancelled value) => $_setField(4, value);
+  @$pb.TagNumber(4)
+  $core.bool hasJobCancelled() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearJobCancelled() => $_clearField(4);
+  @$pb.TagNumber(4)
+  JobCancelled ensureJobCancelled() => $_ensure(3);
 }
 
 class GeoPoint extends $pb.GeneratedMessage {
@@ -757,6 +775,8 @@ class JobOffer extends $pb.GeneratedMessage {
     $core.int? priority,
     $core.int? etaSeconds,
     $core.String? notes,
+    $fixnum.Int64? expiresAtMs,
+    $fixnum.Int64? number,
   }) {
     final result = JobOffer._();
     if (jobId != null) result.jobId = jobId;
@@ -767,6 +787,8 @@ class JobOffer extends $pb.GeneratedMessage {
     if (priority != null) result.priority = priority;
     if (etaSeconds != null) result.etaSeconds = etaSeconds;
     if (notes != null) result.notes = notes;
+    if (expiresAtMs != null) result.expiresAtMs = expiresAtMs;
+    if (number != null) result.number = number;
     return result;
   }
 
@@ -794,6 +816,8 @@ class JobOffer extends $pb.GeneratedMessage {
     ..aI(6, _omitFieldNames ? '' : 'priority')
     ..aI(7, _omitFieldNames ? '' : 'etaSeconds')
     ..aOS(8, _omitFieldNames ? '' : 'notes')
+    ..aInt64(9, _omitFieldNames ? '' : 'expiresAtMs')
+    ..aInt64(10, _omitFieldNames ? '' : 'number')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -891,6 +915,97 @@ class JobOffer extends $pb.GeneratedMessage {
   $core.bool hasNotes() => $_has(7);
   @$pb.TagNumber(8)
   void clearNotes() => $_clearField(8);
+
+  /// The offer lapses (and goes to the next driver) at this time, Unix ms.
+  @$pb.TagNumber(9)
+  $fixnum.Int64 get expiresAtMs => $_getI64(8);
+  @$pb.TagNumber(9)
+  set expiresAtMs($fixnum.Int64 value) => $_setInt64(8, value);
+  @$pb.TagNumber(9)
+  $core.bool hasExpiresAtMs() => $_has(8);
+  @$pb.TagNumber(9)
+  void clearExpiresAtMs() => $_clearField(9);
+
+  /// Human-friendly job number shown as "#1042".
+  @$pb.TagNumber(10)
+  $fixnum.Int64 get number => $_getI64(9);
+  @$pb.TagNumber(10)
+  set number($fixnum.Int64 value) => $_setInt64(9, value);
+  @$pb.TagNumber(10)
+  $core.bool hasNumber() => $_has(9);
+  @$pb.TagNumber(10)
+  void clearNumber() => $_clearField(10);
+}
+
+/// The dispatcher cancelled a job this vehicle was offered or working on.
+class JobCancelled extends $pb.GeneratedMessage {
+  factory JobCancelled({
+    $core.String? jobId,
+    $core.String? reason,
+  }) {
+    final result = JobCancelled._();
+    if (jobId != null) result.jobId = jobId;
+    if (reason != null) result.reason = reason;
+    return result;
+  }
+
+  JobCancelled._();
+
+  factory JobCancelled.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      JobCancelled()..mergeFromBuffer(data, registry);
+  factory JobCancelled.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      JobCancelled()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'JobCancelled',
+      package:
+          const $pb.PackageName(_omitMessageNames ? '' : 'radian.telemetry.v1'),
+      createEmptyInstance: JobCancelled.$_createMessage)
+    ..aOS(1, _omitFieldNames ? '' : 'jobId')
+    ..aOS(2, _omitFieldNames ? '' : 'reason')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  JobCancelled clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  JobCancelled copyWith(void Function(JobCancelled) updates) =>
+      super.copyWith((message) => updates(message as JobCancelled))
+          as JobCancelled;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use JobCancelled() / JobCancelled.new instead')
+  static JobCancelled create() => JobCancelled._();
+  static $pb.GeneratedMessage $_createMessage() => JobCancelled._();
+  @$core.override
+  JobCancelled createEmptyInstance() => JobCancelled._();
+  @$core.pragma('dart2js:noInline')
+  static JobCancelled getDefault() =>
+      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<JobCancelled>(
+          JobCancelled.$_createMessage);
+  static JobCancelled? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get jobId => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set jobId($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasJobId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearJobId() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get reason => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set reason($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasReason() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearReason() => $_clearField(2);
 }
 
 class JobStatusUpdate extends $pb.GeneratedMessage {
@@ -1428,14 +1543,69 @@ class FleetUpdate extends $pb.GeneratedMessage {
   void clearIsSnapshot() => $_clearField(4);
 }
 
-enum DashboardServerMessage_Payload { fleetUpdate, notSet }
+/// Something about a job changed; dashboards refetch the job list.
+class JobsChanged extends $pb.GeneratedMessage {
+  factory JobsChanged({
+    $core.Iterable<$core.String>? jobIds,
+  }) {
+    final result = JobsChanged._();
+    if (jobIds != null) result.jobIds.addAll(jobIds);
+    return result;
+  }
+
+  JobsChanged._();
+
+  factory JobsChanged.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      JobsChanged()..mergeFromBuffer(data, registry);
+  factory JobsChanged.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      JobsChanged()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'JobsChanged',
+      package:
+          const $pb.PackageName(_omitMessageNames ? '' : 'radian.telemetry.v1'),
+      createEmptyInstance: JobsChanged.$_createMessage)
+    ..pPS(1, _omitFieldNames ? '' : 'jobIds')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  JobsChanged clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  JobsChanged copyWith(void Function(JobsChanged) updates) =>
+      super.copyWith((message) => updates(message as JobsChanged))
+          as JobsChanged;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use JobsChanged() / JobsChanged.new instead')
+  static JobsChanged create() => JobsChanged._();
+  static $pb.GeneratedMessage $_createMessage() => JobsChanged._();
+  @$core.override
+  JobsChanged createEmptyInstance() => JobsChanged._();
+  @$core.pragma('dart2js:noInline')
+  static JobsChanged getDefault() =>
+      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<JobsChanged>(
+          JobsChanged.$_createMessage);
+  static JobsChanged? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $pb.PbList<$core.String> get jobIds => $_getList(0);
+}
+
+enum DashboardServerMessage_Payload { fleetUpdate, jobsChanged, notSet }
 
 class DashboardServerMessage extends $pb.GeneratedMessage {
   factory DashboardServerMessage({
     FleetUpdate? fleetUpdate,
+    JobsChanged? jobsChanged,
   }) {
     final result = DashboardServerMessage._();
     if (fleetUpdate != null) result.fleetUpdate = fleetUpdate;
+    if (jobsChanged != null) result.jobsChanged = jobsChanged;
     return result;
   }
 
@@ -1451,6 +1621,7 @@ class DashboardServerMessage extends $pb.GeneratedMessage {
   static const $core.Map<$core.int, DashboardServerMessage_Payload>
       _DashboardServerMessage_PayloadByTag = {
     1: DashboardServerMessage_Payload.fleetUpdate,
+    2: DashboardServerMessage_Payload.jobsChanged,
     0: DashboardServerMessage_Payload.notSet
   };
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
@@ -1458,9 +1629,11 @@ class DashboardServerMessage extends $pb.GeneratedMessage {
       package:
           const $pb.PackageName(_omitMessageNames ? '' : 'radian.telemetry.v1'),
       createEmptyInstance: DashboardServerMessage.$_createMessage)
-    ..oo(0, [1])
+    ..oo(0, [1, 2])
     ..aOM<FleetUpdate>(1, _omitFieldNames ? '' : 'fleetUpdate',
         subBuilder: FleetUpdate.$_createMessage)
+    ..aOM<JobsChanged>(2, _omitFieldNames ? '' : 'jobsChanged',
+        subBuilder: JobsChanged.$_createMessage)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -1488,9 +1661,11 @@ class DashboardServerMessage extends $pb.GeneratedMessage {
   static DashboardServerMessage? _defaultInstance;
 
   @$pb.TagNumber(1)
+  @$pb.TagNumber(2)
   DashboardServerMessage_Payload whichPayload() =>
       _DashboardServerMessage_PayloadByTag[$_whichOneof(0)]!;
   @$pb.TagNumber(1)
+  @$pb.TagNumber(2)
   void clearPayload() => $_clearField($_whichOneof(0));
 
   @$pb.TagNumber(1)
@@ -1503,6 +1678,17 @@ class DashboardServerMessage extends $pb.GeneratedMessage {
   void clearFleetUpdate() => $_clearField(1);
   @$pb.TagNumber(1)
   FleetUpdate ensureFleetUpdate() => $_ensure(0);
+
+  @$pb.TagNumber(2)
+  JobsChanged get jobsChanged => $_getN(1);
+  @$pb.TagNumber(2)
+  set jobsChanged(JobsChanged value) => $_setField(2, value);
+  @$pb.TagNumber(2)
+  $core.bool hasJobsChanged() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearJobsChanged() => $_clearField(2);
+  @$pb.TagNumber(2)
+  JobsChanged ensureJobsChanged() => $_ensure(1);
 }
 
 const $core.bool _omitFieldNames =

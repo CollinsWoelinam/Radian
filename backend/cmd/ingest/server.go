@@ -214,6 +214,34 @@ func (s *Server) handleMetrics(w http.ResponseWriter, _ *http.Request) {
 	})
 }
 
+// forwardDispatch relays job offers and cancellations published by the api
+// service to the vehicle's phone, if it's connected to this instance. Phones
+// also poll for their current job, so a missed message only delays it.
+func (s *Server) forwardDispatch(ctx context.Context) {
+	ps := s.rdb.PSubscribe(ctx, stream.DevicePattern)
+	go func() {
+		<-ctx.Done()
+		ps.Close()
+	}()
+	for m := range ps.Channel() {
+		vehicleID := strings.TrimPrefix(m.Channel, stream.DeviceChannel(""))
+		s.mu.Lock()
+		sess := s.sessions[vehicleID]
+		s.mu.Unlock()
+		if sess == nil {
+			continue
+		}
+		wctx, cancel := context.WithTimeout(ctx, writeTimeout)
+		err := sess.conn.Write(wctx, websocket.MessageBinary, []byte(m.Payload))
+		cancel()
+		if err != nil {
+			s.log.Warn("forward dispatch message", "vehicle_id", vehicleID, "err", err)
+		} else {
+			s.log.Info("dispatch message delivered", "vehicle_id", vehicleID)
+		}
+	}
+}
+
 func bearerToken(r *http.Request) string {
 	if h := r.Header.Get("Authorization"); strings.HasPrefix(h, "Bearer ") {
 		return strings.TrimPrefix(h, "Bearer ")

@@ -23,6 +23,7 @@ class TrackingEngine {
     required this.buffer,
     this.startedAt,
     this.refreshToken,
+    this.onJobOffer,
   });
 
   final String token;
@@ -33,6 +34,9 @@ class TrackingEngine {
   /// Returns a token valid for a while yet (refreshing it if needed), so a
   /// long-running shift never hits token expiry.
   final Future<String?> Function()? refreshToken;
+
+  /// Called when dispatch pushes a job offer (e.g. to post a notification).
+  final void Function(JobOffer offer)? onJobOffer;
 
   /// Platform speeds above this are glitches; fall back to deriving speed.
   static const _maxPlausibleKmh = 250.0;
@@ -294,8 +298,14 @@ class TrackingEngine {
           if (_motion.mode == MotionMode.moving) _listen();
         }
       case ServerMessage_Payload.jobOffer:
+        _log('job offer #${msg.jobOffer.number}');
+        onJobOffer?.call(msg.jobOffer);
+        _emit(current.copyWith(jobSignal: current.jobSignal + 1));
+      case ServerMessage_Payload.jobCancelled:
+        _log('job cancelled: ${msg.jobCancelled.reason}');
+        _emit(current.copyWith(jobSignal: current.jobSignal + 1));
       case ServerMessage_Payload.notSet:
-        break; // dispatch lands in the next step
+        break;
     }
   }
 

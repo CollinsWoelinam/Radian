@@ -569,6 +569,7 @@ type ServerMessage struct {
 	//	*ServerMessage_Ack
 	//	*ServerMessage_Config
 	//	*ServerMessage_JobOffer
+	//	*ServerMessage_JobCancelled
 	Payload       isServerMessage_Payload `protobuf_oneof:"payload"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -638,6 +639,15 @@ func (x *ServerMessage) GetJobOffer() *JobOffer {
 	return nil
 }
 
+func (x *ServerMessage) GetJobCancelled() *JobCancelled {
+	if x != nil {
+		if x, ok := x.Payload.(*ServerMessage_JobCancelled); ok {
+			return x.JobCancelled
+		}
+	}
+	return nil
+}
+
 type isServerMessage_Payload interface {
 	isServerMessage_Payload()
 }
@@ -654,11 +664,17 @@ type ServerMessage_JobOffer struct {
 	JobOffer *JobOffer `protobuf:"bytes,3,opt,name=job_offer,json=jobOffer,proto3,oneof"`
 }
 
+type ServerMessage_JobCancelled struct {
+	JobCancelled *JobCancelled `protobuf:"bytes,4,opt,name=job_cancelled,json=jobCancelled,proto3,oneof"`
+}
+
 func (*ServerMessage_Ack) isServerMessage_Payload() {}
 
 func (*ServerMessage_Config) isServerMessage_Payload() {}
 
 func (*ServerMessage_JobOffer) isServerMessage_Payload() {}
+
+func (*ServerMessage_JobCancelled) isServerMessage_Payload() {}
 
 type GeoPoint struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
@@ -722,8 +738,12 @@ type JobOffer struct {
 	Priority       int32                  `protobuf:"varint,6,opt,name=priority,proto3" json:"priority,omitempty"`
 	EtaSeconds     int32                  `protobuf:"varint,7,opt,name=eta_seconds,json=etaSeconds,proto3" json:"eta_seconds,omitempty"`
 	Notes          string                 `protobuf:"bytes,8,opt,name=notes,proto3" json:"notes,omitempty"`
-	unknownFields  protoimpl.UnknownFields
-	sizeCache      protoimpl.SizeCache
+	// The offer lapses (and goes to the next driver) at this time, Unix ms.
+	ExpiresAtMs int64 `protobuf:"varint,9,opt,name=expires_at_ms,json=expiresAtMs,proto3" json:"expires_at_ms,omitempty"`
+	// Human-friendly job number shown as "#1042".
+	Number        int64 `protobuf:"varint,10,opt,name=number,proto3" json:"number,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *JobOffer) Reset() {
@@ -812,6 +832,73 @@ func (x *JobOffer) GetNotes() string {
 	return ""
 }
 
+func (x *JobOffer) GetExpiresAtMs() int64 {
+	if x != nil {
+		return x.ExpiresAtMs
+	}
+	return 0
+}
+
+func (x *JobOffer) GetNumber() int64 {
+	if x != nil {
+		return x.Number
+	}
+	return 0
+}
+
+// The dispatcher cancelled a job this vehicle was offered or working on.
+type JobCancelled struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	JobId         string                 `protobuf:"bytes,1,opt,name=job_id,json=jobId,proto3" json:"job_id,omitempty"`
+	Reason        string                 `protobuf:"bytes,2,opt,name=reason,proto3" json:"reason,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *JobCancelled) Reset() {
+	*x = JobCancelled{}
+	mi := &file_radian_telemetry_v1_telemetry_proto_msgTypes[9]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *JobCancelled) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*JobCancelled) ProtoMessage() {}
+
+func (x *JobCancelled) ProtoReflect() protoreflect.Message {
+	mi := &file_radian_telemetry_v1_telemetry_proto_msgTypes[9]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use JobCancelled.ProtoReflect.Descriptor instead.
+func (*JobCancelled) Descriptor() ([]byte, []int) {
+	return file_radian_telemetry_v1_telemetry_proto_rawDescGZIP(), []int{9}
+}
+
+func (x *JobCancelled) GetJobId() string {
+	if x != nil {
+		return x.JobId
+	}
+	return ""
+}
+
+func (x *JobCancelled) GetReason() string {
+	if x != nil {
+		return x.Reason
+	}
+	return ""
+}
+
 type JobStatusUpdate struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	JobId         string                 `protobuf:"bytes,1,opt,name=job_id,json=jobId,proto3" json:"job_id,omitempty"`
@@ -823,7 +910,7 @@ type JobStatusUpdate struct {
 
 func (x *JobStatusUpdate) Reset() {
 	*x = JobStatusUpdate{}
-	mi := &file_radian_telemetry_v1_telemetry_proto_msgTypes[9]
+	mi := &file_radian_telemetry_v1_telemetry_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -835,7 +922,7 @@ func (x *JobStatusUpdate) String() string {
 func (*JobStatusUpdate) ProtoMessage() {}
 
 func (x *JobStatusUpdate) ProtoReflect() protoreflect.Message {
-	mi := &file_radian_telemetry_v1_telemetry_proto_msgTypes[9]
+	mi := &file_radian_telemetry_v1_telemetry_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -848,7 +935,7 @@ func (x *JobStatusUpdate) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use JobStatusUpdate.ProtoReflect.Descriptor instead.
 func (*JobStatusUpdate) Descriptor() ([]byte, []int) {
-	return file_radian_telemetry_v1_telemetry_proto_rawDescGZIP(), []int{9}
+	return file_radian_telemetry_v1_telemetry_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *JobStatusUpdate) GetJobId() string {
@@ -884,7 +971,7 @@ type BoundingBox struct {
 
 func (x *BoundingBox) Reset() {
 	*x = BoundingBox{}
-	mi := &file_radian_telemetry_v1_telemetry_proto_msgTypes[10]
+	mi := &file_radian_telemetry_v1_telemetry_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -896,7 +983,7 @@ func (x *BoundingBox) String() string {
 func (*BoundingBox) ProtoMessage() {}
 
 func (x *BoundingBox) ProtoReflect() protoreflect.Message {
-	mi := &file_radian_telemetry_v1_telemetry_proto_msgTypes[10]
+	mi := &file_radian_telemetry_v1_telemetry_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -909,7 +996,7 @@ func (x *BoundingBox) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BoundingBox.ProtoReflect.Descriptor instead.
 func (*BoundingBox) Descriptor() ([]byte, []int) {
-	return file_radian_telemetry_v1_telemetry_proto_rawDescGZIP(), []int{10}
+	return file_radian_telemetry_v1_telemetry_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *BoundingBox) GetMinLon() float64 {
@@ -951,7 +1038,7 @@ type DashboardSubscribe struct {
 
 func (x *DashboardSubscribe) Reset() {
 	*x = DashboardSubscribe{}
-	mi := &file_radian_telemetry_v1_telemetry_proto_msgTypes[11]
+	mi := &file_radian_telemetry_v1_telemetry_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -963,7 +1050,7 @@ func (x *DashboardSubscribe) String() string {
 func (*DashboardSubscribe) ProtoMessage() {}
 
 func (x *DashboardSubscribe) ProtoReflect() protoreflect.Message {
-	mi := &file_radian_telemetry_v1_telemetry_proto_msgTypes[11]
+	mi := &file_radian_telemetry_v1_telemetry_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -976,7 +1063,7 @@ func (x *DashboardSubscribe) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DashboardSubscribe.ProtoReflect.Descriptor instead.
 func (*DashboardSubscribe) Descriptor() ([]byte, []int) {
-	return file_radian_telemetry_v1_telemetry_proto_rawDescGZIP(), []int{11}
+	return file_radian_telemetry_v1_telemetry_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *DashboardSubscribe) GetViewport() *BoundingBox {
@@ -998,7 +1085,7 @@ type DashboardClientMessage struct {
 
 func (x *DashboardClientMessage) Reset() {
 	*x = DashboardClientMessage{}
-	mi := &file_radian_telemetry_v1_telemetry_proto_msgTypes[12]
+	mi := &file_radian_telemetry_v1_telemetry_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1010,7 +1097,7 @@ func (x *DashboardClientMessage) String() string {
 func (*DashboardClientMessage) ProtoMessage() {}
 
 func (x *DashboardClientMessage) ProtoReflect() protoreflect.Message {
-	mi := &file_radian_telemetry_v1_telemetry_proto_msgTypes[12]
+	mi := &file_radian_telemetry_v1_telemetry_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1023,7 +1110,7 @@ func (x *DashboardClientMessage) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DashboardClientMessage.ProtoReflect.Descriptor instead.
 func (*DashboardClientMessage) Descriptor() ([]byte, []int) {
-	return file_radian_telemetry_v1_telemetry_proto_rawDescGZIP(), []int{12}
+	return file_radian_telemetry_v1_telemetry_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *DashboardClientMessage) GetPayload() isDashboardClientMessage_Payload {
@@ -1067,7 +1154,7 @@ type VehicleDelta struct {
 
 func (x *VehicleDelta) Reset() {
 	*x = VehicleDelta{}
-	mi := &file_radian_telemetry_v1_telemetry_proto_msgTypes[13]
+	mi := &file_radian_telemetry_v1_telemetry_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1079,7 +1166,7 @@ func (x *VehicleDelta) String() string {
 func (*VehicleDelta) ProtoMessage() {}
 
 func (x *VehicleDelta) ProtoReflect() protoreflect.Message {
-	mi := &file_radian_telemetry_v1_telemetry_proto_msgTypes[13]
+	mi := &file_radian_telemetry_v1_telemetry_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1092,7 +1179,7 @@ func (x *VehicleDelta) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use VehicleDelta.ProtoReflect.Descriptor instead.
 func (*VehicleDelta) Descriptor() ([]byte, []int) {
-	return file_radian_telemetry_v1_telemetry_proto_rawDescGZIP(), []int{13}
+	return file_radian_telemetry_v1_telemetry_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *VehicleDelta) GetVehicleId() string {
@@ -1159,7 +1246,7 @@ type FleetUpdate struct {
 
 func (x *FleetUpdate) Reset() {
 	*x = FleetUpdate{}
-	mi := &file_radian_telemetry_v1_telemetry_proto_msgTypes[14]
+	mi := &file_radian_telemetry_v1_telemetry_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1171,7 +1258,7 @@ func (x *FleetUpdate) String() string {
 func (*FleetUpdate) ProtoMessage() {}
 
 func (x *FleetUpdate) ProtoReflect() protoreflect.Message {
-	mi := &file_radian_telemetry_v1_telemetry_proto_msgTypes[14]
+	mi := &file_radian_telemetry_v1_telemetry_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1184,7 +1271,7 @@ func (x *FleetUpdate) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FleetUpdate.ProtoReflect.Descriptor instead.
 func (*FleetUpdate) Descriptor() ([]byte, []int) {
-	return file_radian_telemetry_v1_telemetry_proto_rawDescGZIP(), []int{14}
+	return file_radian_telemetry_v1_telemetry_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *FleetUpdate) GetDeltas() []*VehicleDelta {
@@ -1215,11 +1302,57 @@ func (x *FleetUpdate) GetIsSnapshot() bool {
 	return false
 }
 
+// Something about a job changed; dashboards refetch the job list.
+type JobsChanged struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	JobIds        []string               `protobuf:"bytes,1,rep,name=job_ids,json=jobIds,proto3" json:"job_ids,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *JobsChanged) Reset() {
+	*x = JobsChanged{}
+	mi := &file_radian_telemetry_v1_telemetry_proto_msgTypes[16]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *JobsChanged) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*JobsChanged) ProtoMessage() {}
+
+func (x *JobsChanged) ProtoReflect() protoreflect.Message {
+	mi := &file_radian_telemetry_v1_telemetry_proto_msgTypes[16]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use JobsChanged.ProtoReflect.Descriptor instead.
+func (*JobsChanged) Descriptor() ([]byte, []int) {
+	return file_radian_telemetry_v1_telemetry_proto_rawDescGZIP(), []int{16}
+}
+
+func (x *JobsChanged) GetJobIds() []string {
+	if x != nil {
+		return x.JobIds
+	}
+	return nil
+}
+
 type DashboardServerMessage struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Types that are valid to be assigned to Payload:
 	//
 	//	*DashboardServerMessage_FleetUpdate
+	//	*DashboardServerMessage_JobsChanged
 	Payload       isDashboardServerMessage_Payload `protobuf_oneof:"payload"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -1227,7 +1360,7 @@ type DashboardServerMessage struct {
 
 func (x *DashboardServerMessage) Reset() {
 	*x = DashboardServerMessage{}
-	mi := &file_radian_telemetry_v1_telemetry_proto_msgTypes[15]
+	mi := &file_radian_telemetry_v1_telemetry_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1239,7 +1372,7 @@ func (x *DashboardServerMessage) String() string {
 func (*DashboardServerMessage) ProtoMessage() {}
 
 func (x *DashboardServerMessage) ProtoReflect() protoreflect.Message {
-	mi := &file_radian_telemetry_v1_telemetry_proto_msgTypes[15]
+	mi := &file_radian_telemetry_v1_telemetry_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1252,7 +1385,7 @@ func (x *DashboardServerMessage) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DashboardServerMessage.ProtoReflect.Descriptor instead.
 func (*DashboardServerMessage) Descriptor() ([]byte, []int) {
-	return file_radian_telemetry_v1_telemetry_proto_rawDescGZIP(), []int{15}
+	return file_radian_telemetry_v1_telemetry_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *DashboardServerMessage) GetPayload() isDashboardServerMessage_Payload {
@@ -1271,6 +1404,15 @@ func (x *DashboardServerMessage) GetFleetUpdate() *FleetUpdate {
 	return nil
 }
 
+func (x *DashboardServerMessage) GetJobsChanged() *JobsChanged {
+	if x != nil {
+		if x, ok := x.Payload.(*DashboardServerMessage_JobsChanged); ok {
+			return x.JobsChanged
+		}
+	}
+	return nil
+}
+
 type isDashboardServerMessage_Payload interface {
 	isDashboardServerMessage_Payload()
 }
@@ -1279,7 +1421,13 @@ type DashboardServerMessage_FleetUpdate struct {
 	FleetUpdate *FleetUpdate `protobuf:"bytes,1,opt,name=fleet_update,json=fleetUpdate,proto3,oneof"`
 }
 
+type DashboardServerMessage_JobsChanged struct {
+	JobsChanged *JobsChanged `protobuf:"bytes,2,opt,name=jobs_changed,json=jobsChanged,proto3,oneof"`
+}
+
 func (*DashboardServerMessage_FleetUpdate) isDashboardServerMessage_Payload() {}
+
+func (*DashboardServerMessage_JobsChanged) isDashboardServerMessage_Payload() {}
 
 var File_radian_telemetry_v1_telemetry_proto protoreflect.FileDescriptor
 
@@ -1324,15 +1472,16 @@ const file_radian_telemetry_v1_telemetry_proto_rawDesc = "" +
 	"\x12moving_interval_ms\x18\x01 \x01(\x05R\x10movingIntervalMs\x12*\n" +
 	"\x11distance_filter_m\x18\x02 \x01(\x05R\x0fdistanceFilterM\x12$\n" +
 	"\x0emax_accuracy_m\x18\x03 \x01(\x02R\fmaxAccuracyM\x120\n" +
-	"\x14stationary_speed_kmh\x18\x04 \x01(\x02R\x12stationarySpeedKmh\"\xca\x01\n" +
+	"\x14stationary_speed_kmh\x18\x04 \x01(\x02R\x12stationarySpeedKmh\"\x94\x02\n" +
 	"\rServerMessage\x121\n" +
 	"\x03ack\x18\x01 \x01(\v2\x1d.radian.telemetry.v1.BatchAckH\x00R\x03ack\x12=\n" +
 	"\x06config\x18\x02 \x01(\v2#.radian.telemetry.v1.TrackingConfigH\x00R\x06config\x12<\n" +
-	"\tjob_offer\x18\x03 \x01(\v2\x1d.radian.telemetry.v1.JobOfferH\x00R\bjobOfferB\t\n" +
+	"\tjob_offer\x18\x03 \x01(\v2\x1d.radian.telemetry.v1.JobOfferH\x00R\bjobOffer\x12H\n" +
+	"\rjob_cancelled\x18\x04 \x01(\v2!.radian.telemetry.v1.JobCancelledH\x00R\fjobCancelledB\t\n" +
 	"\apayload\"D\n" +
 	"\bGeoPoint\x12\x1a\n" +
 	"\blatitude\x18\x01 \x01(\x01R\blatitude\x12\x1c\n" +
-	"\tlongitude\x18\x02 \x01(\x01R\tlongitude\"\xde\x02\n" +
+	"\tlongitude\x18\x02 \x01(\x01R\tlongitude\"\x9a\x03\n" +
 	"\bJobOffer\x12\x15\n" +
 	"\x06job_id\x18\x01 \x01(\tR\x05jobId\x125\n" +
 	"\x06pickup\x18\x02 \x01(\v2\x1d.radian.telemetry.v1.GeoPointR\x06pickup\x12%\n" +
@@ -1342,10 +1491,16 @@ const file_radian_telemetry_v1_telemetry_proto_rawDesc = "" +
 	"\bpriority\x18\x06 \x01(\x05R\bpriority\x12\x1f\n" +
 	"\veta_seconds\x18\a \x01(\x05R\n" +
 	"etaSeconds\x12\x14\n" +
-	"\x05notes\x18\b \x01(\tR\x05notesB\n" +
+	"\x05notes\x18\b \x01(\tR\x05notes\x12\"\n" +
+	"\rexpires_at_ms\x18\t \x01(\x03R\vexpiresAtMs\x12\x16\n" +
+	"\x06number\x18\n" +
+	" \x01(\x03R\x06numberB\n" +
 	"\n" +
 	"\b_dropoffB\x12\n" +
-	"\x10_dropoff_address\"\x86\x01\n" +
+	"\x10_dropoff_address\"=\n" +
+	"\fJobCancelled\x12\x15\n" +
+	"\x06job_id\x18\x01 \x01(\tR\x05jobId\x12\x16\n" +
+	"\x06reason\x18\x02 \x01(\tR\x06reason\"\x86\x01\n" +
 	"\x0fJobStatusUpdate\x12\x15\n" +
 	"\x06job_id\x18\x01 \x01(\tR\x05jobId\x126\n" +
 	"\x06status\x18\x02 \x01(\x0e2\x1e.radian.telemetry.v1.JobStatusR\x06status\x12$\n" +
@@ -1375,9 +1530,12 @@ const file_radian_telemetry_v1_telemetry_proto_rawDesc = "" +
 	"\x13removed_vehicle_ids\x18\x02 \x03(\tR\x11removedVehicleIds\x12$\n" +
 	"\x0eserver_time_ms\x18\x03 \x01(\x03R\fserverTimeMs\x12\x1f\n" +
 	"\vis_snapshot\x18\x04 \x01(\bR\n" +
-	"isSnapshot\"j\n" +
+	"isSnapshot\"&\n" +
+	"\vJobsChanged\x12\x17\n" +
+	"\ajob_ids\x18\x01 \x03(\tR\x06jobIds\"\xb1\x01\n" +
 	"\x16DashboardServerMessage\x12E\n" +
-	"\ffleet_update\x18\x01 \x01(\v2 .radian.telemetry.v1.FleetUpdateH\x00R\vfleetUpdateB\t\n" +
+	"\ffleet_update\x18\x01 \x01(\v2 .radian.telemetry.v1.FleetUpdateH\x00R\vfleetUpdate\x12E\n" +
+	"\fjobs_changed\x18\x02 \x01(\v2 .radian.telemetry.v1.JobsChangedH\x00R\vjobsChangedB\t\n" +
 	"\apayload*\xe5\x01\n" +
 	"\tJobStatus\x12\x1a\n" +
 	"\x16JOB_STATUS_UNSPECIFIED\x10\x00\x12\x16\n" +
@@ -1408,7 +1566,7 @@ func file_radian_telemetry_v1_telemetry_proto_rawDescGZIP() []byte {
 }
 
 var file_radian_telemetry_v1_telemetry_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
-var file_radian_telemetry_v1_telemetry_proto_msgTypes = make([]protoimpl.MessageInfo, 16)
+var file_radian_telemetry_v1_telemetry_proto_msgTypes = make([]protoimpl.MessageInfo, 18)
 var file_radian_telemetry_v1_telemetry_proto_goTypes = []any{
 	(JobStatus)(0),                 // 0: radian.telemetry.v1.JobStatus
 	(VehicleStatus)(0),             // 1: radian.telemetry.v1.VehicleStatus
@@ -1421,35 +1579,39 @@ var file_radian_telemetry_v1_telemetry_proto_goTypes = []any{
 	(*ServerMessage)(nil),          // 8: radian.telemetry.v1.ServerMessage
 	(*GeoPoint)(nil),               // 9: radian.telemetry.v1.GeoPoint
 	(*JobOffer)(nil),               // 10: radian.telemetry.v1.JobOffer
-	(*JobStatusUpdate)(nil),        // 11: radian.telemetry.v1.JobStatusUpdate
-	(*BoundingBox)(nil),            // 12: radian.telemetry.v1.BoundingBox
-	(*DashboardSubscribe)(nil),     // 13: radian.telemetry.v1.DashboardSubscribe
-	(*DashboardClientMessage)(nil), // 14: radian.telemetry.v1.DashboardClientMessage
-	(*VehicleDelta)(nil),           // 15: radian.telemetry.v1.VehicleDelta
-	(*FleetUpdate)(nil),            // 16: radian.telemetry.v1.FleetUpdate
-	(*DashboardServerMessage)(nil), // 17: radian.telemetry.v1.DashboardServerMessage
+	(*JobCancelled)(nil),           // 11: radian.telemetry.v1.JobCancelled
+	(*JobStatusUpdate)(nil),        // 12: radian.telemetry.v1.JobStatusUpdate
+	(*BoundingBox)(nil),            // 13: radian.telemetry.v1.BoundingBox
+	(*DashboardSubscribe)(nil),     // 14: radian.telemetry.v1.DashboardSubscribe
+	(*DashboardClientMessage)(nil), // 15: radian.telemetry.v1.DashboardClientMessage
+	(*VehicleDelta)(nil),           // 16: radian.telemetry.v1.VehicleDelta
+	(*FleetUpdate)(nil),            // 17: radian.telemetry.v1.FleetUpdate
+	(*JobsChanged)(nil),            // 18: radian.telemetry.v1.JobsChanged
+	(*DashboardServerMessage)(nil), // 19: radian.telemetry.v1.DashboardServerMessage
 }
 var file_radian_telemetry_v1_telemetry_proto_depIdxs = []int32{
 	2,  // 0: radian.telemetry.v1.TelemetryBatch.points:type_name -> radian.telemetry.v1.LocationPoint
 	3,  // 1: radian.telemetry.v1.ClientMessage.batch:type_name -> radian.telemetry.v1.TelemetryBatch
 	4,  // 2: radian.telemetry.v1.ClientMessage.heartbeat:type_name -> radian.telemetry.v1.Heartbeat
-	11, // 3: radian.telemetry.v1.ClientMessage.job_status:type_name -> radian.telemetry.v1.JobStatusUpdate
+	12, // 3: radian.telemetry.v1.ClientMessage.job_status:type_name -> radian.telemetry.v1.JobStatusUpdate
 	6,  // 4: radian.telemetry.v1.ServerMessage.ack:type_name -> radian.telemetry.v1.BatchAck
 	7,  // 5: radian.telemetry.v1.ServerMessage.config:type_name -> radian.telemetry.v1.TrackingConfig
 	10, // 6: radian.telemetry.v1.ServerMessage.job_offer:type_name -> radian.telemetry.v1.JobOffer
-	9,  // 7: radian.telemetry.v1.JobOffer.pickup:type_name -> radian.telemetry.v1.GeoPoint
-	9,  // 8: radian.telemetry.v1.JobOffer.dropoff:type_name -> radian.telemetry.v1.GeoPoint
-	0,  // 9: radian.telemetry.v1.JobStatusUpdate.status:type_name -> radian.telemetry.v1.JobStatus
-	12, // 10: radian.telemetry.v1.DashboardSubscribe.viewport:type_name -> radian.telemetry.v1.BoundingBox
-	13, // 11: radian.telemetry.v1.DashboardClientMessage.subscribe:type_name -> radian.telemetry.v1.DashboardSubscribe
-	1,  // 12: radian.telemetry.v1.VehicleDelta.status:type_name -> radian.telemetry.v1.VehicleStatus
-	15, // 13: radian.telemetry.v1.FleetUpdate.deltas:type_name -> radian.telemetry.v1.VehicleDelta
-	16, // 14: radian.telemetry.v1.DashboardServerMessage.fleet_update:type_name -> radian.telemetry.v1.FleetUpdate
-	15, // [15:15] is the sub-list for method output_type
-	15, // [15:15] is the sub-list for method input_type
-	15, // [15:15] is the sub-list for extension type_name
-	15, // [15:15] is the sub-list for extension extendee
-	0,  // [0:15] is the sub-list for field type_name
+	11, // 7: radian.telemetry.v1.ServerMessage.job_cancelled:type_name -> radian.telemetry.v1.JobCancelled
+	9,  // 8: radian.telemetry.v1.JobOffer.pickup:type_name -> radian.telemetry.v1.GeoPoint
+	9,  // 9: radian.telemetry.v1.JobOffer.dropoff:type_name -> radian.telemetry.v1.GeoPoint
+	0,  // 10: radian.telemetry.v1.JobStatusUpdate.status:type_name -> radian.telemetry.v1.JobStatus
+	13, // 11: radian.telemetry.v1.DashboardSubscribe.viewport:type_name -> radian.telemetry.v1.BoundingBox
+	14, // 12: radian.telemetry.v1.DashboardClientMessage.subscribe:type_name -> radian.telemetry.v1.DashboardSubscribe
+	1,  // 13: radian.telemetry.v1.VehicleDelta.status:type_name -> radian.telemetry.v1.VehicleStatus
+	16, // 14: radian.telemetry.v1.FleetUpdate.deltas:type_name -> radian.telemetry.v1.VehicleDelta
+	17, // 15: radian.telemetry.v1.DashboardServerMessage.fleet_update:type_name -> radian.telemetry.v1.FleetUpdate
+	18, // 16: radian.telemetry.v1.DashboardServerMessage.jobs_changed:type_name -> radian.telemetry.v1.JobsChanged
+	17, // [17:17] is the sub-list for method output_type
+	17, // [17:17] is the sub-list for method input_type
+	17, // [17:17] is the sub-list for extension type_name
+	17, // [17:17] is the sub-list for extension extendee
+	0,  // [0:17] is the sub-list for field type_name
 }
 
 func init() { file_radian_telemetry_v1_telemetry_proto_init() }
@@ -1467,13 +1629,15 @@ func file_radian_telemetry_v1_telemetry_proto_init() {
 		(*ServerMessage_Ack)(nil),
 		(*ServerMessage_Config)(nil),
 		(*ServerMessage_JobOffer)(nil),
+		(*ServerMessage_JobCancelled)(nil),
 	}
 	file_radian_telemetry_v1_telemetry_proto_msgTypes[8].OneofWrappers = []any{}
-	file_radian_telemetry_v1_telemetry_proto_msgTypes[12].OneofWrappers = []any{
+	file_radian_telemetry_v1_telemetry_proto_msgTypes[13].OneofWrappers = []any{
 		(*DashboardClientMessage_Subscribe)(nil),
 	}
-	file_radian_telemetry_v1_telemetry_proto_msgTypes[15].OneofWrappers = []any{
+	file_radian_telemetry_v1_telemetry_proto_msgTypes[17].OneofWrappers = []any{
 		(*DashboardServerMessage_FleetUpdate)(nil),
+		(*DashboardServerMessage_JobsChanged)(nil),
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
@@ -1481,7 +1645,7 @@ func file_radian_telemetry_v1_telemetry_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_radian_telemetry_v1_telemetry_proto_rawDesc), len(file_radian_telemetry_v1_telemetry_proto_rawDesc)),
 			NumEnums:      2,
-			NumMessages:   16,
+			NumMessages:   18,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

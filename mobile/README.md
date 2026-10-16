@@ -29,6 +29,11 @@ GPS stream ─▶ MotionDetector ─▶ LocationFilter ─▶ PointBuffer (SQLit
 | Uplink | `lib/tracking/uplink.dart` | Protobuf WebSocket, jittered reconnect, heartbeats, 401 → sign-in |
 | Host | `lib/tracking/host.dart` | Android: foreground service (own isolate + notification). iOS: in-process, kept alive by background location |
 
+**Dispatch**: offers arrive over the tracking WebSocket (and a 10 s poll as backup; Android also
+shows a heads-up notification). The job card shows a 30 s countdown with Accept/Decline, then the
+current stage with **Navigate** (Google Maps / Waze / Apple Maps) and one next-step button.
+`integration_test/dispatch_test.dart` runs the whole flow against the local backend.
+
 **Reliability features**
 
 - **Pre-shift checklist** (`lib/tracking/readiness.dart`): location on and allowed (required), plus
@@ -51,4 +56,5 @@ flutter test test/            # filter, motion detector, SQLite buffer
 tool/e2e_ios.sh               # full shift on a booted iOS simulator against the local backend
 tool/e2e_android.sh           # same on a running Android emulator
 tool/tour.sh ios <udid>       # screenshot every screen into screenshots/ios (or: android <serial>)
+tool/tour.sh ios <udid> dispatch_test   # dispatch flow: offer, accept, arrive, complete
 ```

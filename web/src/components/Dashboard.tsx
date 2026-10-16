@@ -3,7 +3,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { MapRef } from "react-map-gl/maplibre";
 
-import FleetMap from "./FleetMap";
+import FleetMap, { type JobOverlay } from "./FleetMap";
+import JobsPanel, { type PanelMode } from "./JobsPanel";
+import LoginScreen from "./LoginScreen";
+import { clearSession, loadSession, type DispatcherSession } from "@/lib/auth";
+import { JobsApi, type Job, type JobDetail, type LatLon } from "@/lib/jobs";
 import { FleetStore } from "@/lib/fleet-store";
 import { FleetSocket, type ConnectionState, type Viewport } from "@/lib/fleet-socket";
 import { fetchRegistry, type VehicleInfo } from "@/lib/registry";
@@ -25,7 +29,20 @@ function initialTheme(): Theme {
   return window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
 }
 
+type Draft = { pickup?: LatLon; dropoff?: LatLon | null };
+
+/** Signs the dispatcher in, then shows the live dashboard. */
 export default function Dashboard() {
+  const [session, setSession] = useState<DispatcherSession | null>(loadSession);
+  const signOut = useCallback(() => {
+    clearSession();
+    setSession(null);
+  }, []);
+  if (!session) return <LoginScreen onSignedIn={setSession} />;
+  return <FleetDashboard session={session} onSignOut={signOut} />;
+}
+
+function FleetDashboard({ session, onSignOut }: { session: DispatcherSession; onSignOut: () => void }) {
   const store = useMemo(() => new FleetStore(), []);
   const mapRef = useRef<MapRef | null>(null);
   const socketRef = useRef<FleetSocket | null>(null);
@@ -39,6 +56,17 @@ export default function Dashboard() {
   const [query, setQuery] = useState("");
   const [fps, setFps] = useState(0);
   const [, setTick] = useState(0);
+  const api = useMemo(() => new JobsApi(session.token, onSignOut), [session.token, onSignOut]);
+  const [active, setActive] = useState<Job[]>([]);
+  const [recent, setRecent] = useState<Job[]>([]);
+  const [panel, setPanel] = useState<PanelMode>("list");
+  const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
+  const [selectedJob, setSelectedJob] = useState<JobDetail | null>(null);
+  const [draft, setDraft] = useState<Draft | null>(null);
+  const [jobError, setJobError] = useState<string | null>(null);
+  const [jobsOpen, setJobsOpen] = useState(false); // small screens
+  const jobOverlay = useRef<JobOverlay>({ jobs: [], selectedJob: null, draft: null, picking: false });
+  const selectedJobRef = useRef<string | null>(null);
   const [snap, setSnap] = useState<Snapshot>({
     counts: { EN_ROUTE: 0, ON_JOB: 0, IDLE: 0, OFFLINE: 0 },
     total: 0,
@@ -52,23 +80,112 @@ export default function Dashboard() {
     } catch {}
   }, [theme]);
 
+  // --- Jobs -------------------------------------------------------------------
+  const refreshJobs = useCallback(async () => {
+    try {
+      const [a, r] = await Promise.all([api.list("active"), api.list("recent")]);
+      setActive(a);
+      setRecent(r);
+    } catch {}
+  }, [api]);
+
+  const refreshSelected = useCallback(async () => {
+    const id = selectedJobRef.current;
+    if (!id) return;
+    try {
+      const d = await api.get(id);
+      if (selectedJobRef.current === id) setSelectedJob(d);
+    } catch {}
+  }, [api]);
+
   useEffect(() => {
-    const socket = new FleetSocket(FLEET_WS_URL, (u) => store.apply(u, performance.now()), setConn);
+    const first = setTimeout(refreshJobs, 0);
+    const t = setInterval(refreshJobs, 15_000); // safety net; pushes usually arrive first
+    return () => {
+      clearTimeout(first);
+      clearInterval(t);
+    };
+  }, [refreshJobs]);
+
+  useEffect(() => {
+    selectedJobRef.current = selectedJobId;
+    if (!selectedJobId) return;
+    const first = setTimeout(refreshSelected, 0);
+    const t = setInterval(refreshSelected, 5_000); // keeps the live route and ETA fresh
+    return () => {
+      clearTimeout(first);
+      clearInterval(t);
+    };
+  }, [selectedJobId, refreshSelected]);
+
+  // Only show detail that belongs to the current selection (a stale fetch may linger).
+  const shownJob = selectedJob && selectedJob.id === selectedJobId ? selectedJob : null;
+
+  useEffect(() => {
+    const picking = panel === "create" && (!draft?.pickup || draft.dropoff === undefined);
+    jobOverlay.current = { jobs: active, selectedJob: shownJob, draft: draft && { pickup: draft.pickup, dropoff: draft.dropoff ?? undefined }, picking };
+  }, [active, shownJob, draft, panel]);
+
+  // Job-change pushes arrive in bursts (offer, accept, status); refetch once per burst.
+  const jobsTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const onJobsChanged = useCallback(() => {
+    if (jobsTimer.current) clearTimeout(jobsTimer.current);
+    jobsTimer.current = setTimeout(() => {
+      refreshJobs();
+      refreshSelected();
+    }, 250);
+  }, [refreshJobs, refreshSelected]);
+
+  useEffect(() => {
+    const url = `${FLEET_WS_URL}?token=${encodeURIComponent(session.token)}`;
+    const socket = new FleetSocket(url, (u) => store.apply(u, performance.now()), setConn, onJobsChanged);
     socketRef.current = socket;
     socket.connect();
     return () => socket.close();
-  }, [store]);
+  }, [store, session.token, onJobsChanged]);
 
   useEffect(() => {
     const ctrl = new AbortController();
-    const load = () => fetchRegistry(ctrl.signal).then(setRegistry).catch(() => {});
+    const load = () => fetchRegistry(session.token, ctrl.signal).then(setRegistry).catch(() => {});
     load();
     const id = setInterval(load, 30_000); // pick up newly registered vehicles
     return () => {
       ctrl.abort();
       clearInterval(id);
     };
+  }, [session.token]);
+
+  const flyTo = useCallback((at: LatLon, zoom = 14.5) => {
+    mapRef.current?.flyTo({ center: [at.lon, at.lat], zoom: Math.max(mapRef.current.getZoom(), zoom) });
   }, []);
+
+  const selectJob = useCallback(
+    (id: string | null) => {
+      setJobError(null);
+      setSelectedJobId(id);
+      setPanel(id ? "detail" : "list");
+      const j = id ? [...active, ...recent].find((x) => x.id === id) : undefined;
+      if (j) flyTo(j.pickup, 13.5);
+    },
+    [active, recent, flyTo],
+  );
+
+  const run = useCallback(async (f: () => Promise<unknown>) => {
+    setJobError(null);
+    try {
+      await f();
+    } catch (e) {
+      setJobError(e instanceof Error ? e.message : "Something went wrong.");
+    }
+  }, []);
+
+  const onMapClick = useCallback(
+    (at: LatLon) => {
+      if (panel !== "create") return;
+      setDraft((d) => (!d?.pickup ? { pickup: at } : d.dropoff === undefined ? { ...d, dropoff: at } : d));
+    },
+    [panel],
+  );
 
   // React only sees the fleet at 2 Hz; the map animates independently.
   useEffect(() => {
@@ -127,6 +244,9 @@ export default function Dashboard() {
         onUserPan={onUserPan}
         onFrame={setFps}
         mapRef={mapRef}
+        jobOverlay={jobOverlay}
+        onSelectJob={selectJob}
+        onMapClick={onMapClick}
       />
 
       {/* Fleet panel */}
@@ -147,6 +267,9 @@ export default function Dashboard() {
               onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
             >
               {theme === "dark" ? <SunIcon /> : <MoonIcon />}
+            </button>
+            <button className="icon-btn" aria-label={`Sign out ${session.dispatcher.full_name}`} title={`Sign out ${session.dispatcher.full_name}`} onClick={onSignOut}>
+              <LogoutIcon />
             </button>
           </div>
         </header>
@@ -211,6 +334,11 @@ export default function Dashboard() {
             </ul>
           )}
         </div>
+        <p className="mt-3 font-mono text-[11px] text-muted">
+          <span className="tabular-nums text-fg">{Math.round(snap.updatesPerSecond).toLocaleString()}</span> updates/s
+          <span className="mx-2 opacity-40">|</span>
+          <span className="tabular-nums text-fg">{Math.round(fps)}</span> fps
+        </p>
       </aside>
 
       {/* Selected vehicle */}
@@ -256,12 +384,60 @@ export default function Dashboard() {
         </section>
       )}
 
-      {/* Pipeline telemetry */}
-      <div className="panel absolute right-4 top-4 z-10 hidden px-3 py-2 font-mono text-[11px] text-muted sm:block">
-        <span className="tabular-nums text-fg">{Math.round(snap.updatesPerSecond).toLocaleString()}</span> updates/s
-        <span className="mx-2 opacity-40">|</span>
-        <span className="tabular-nums text-fg">{Math.round(fps)}</span> fps
-      </div>
+      {/* Jobs: right-hand panel on wide screens, a toggled sheet on phones */}
+      <button
+        className="panel absolute bottom-4 left-1/2 z-20 -translate-x-1/2 px-4 py-2 text-[13px] font-semibold sm:hidden"
+        onClick={() => setJobsOpen((o) => !o)}
+        aria-expanded={jobsOpen}
+      >
+        {jobsOpen ? "Hide jobs" : `Jobs (${active.length})`}
+      </button>
+      <section
+        className={`panel absolute z-10 flex-col overflow-hidden ${jobsOpen ? "flex" : "hidden"} inset-x-2 bottom-16 max-h-[60dvh] sm:inset-x-auto sm:bottom-auto sm:right-4 sm:top-4 sm:flex sm:max-h-[calc(100dvh-7rem)] sm:w-[360px]`}
+        aria-label="Jobs"
+      >
+        <JobsPanel
+          mode={panel}
+          active={active}
+          recent={recent}
+          selected={shownJob}
+          draft={draft}
+          error={jobError}
+          onNewJob={() => {
+            setSelectedJobId(null);
+            setDraft({});
+            setPanel("create");
+            setJobsOpen(true);
+          }}
+          onCancelDraft={() => {
+            setDraft(null);
+            setPanel("list");
+          }}
+          onSkipDropoff={() => setDraft((d) => ({ ...d, dropoff: null }))}
+          onCreate={(fields) =>
+            run(async () => {
+              if (!draft?.pickup) return;
+              const job = await api.create({ ...fields, pickup: draft.pickup, dropoff: draft.dropoff ?? undefined });
+              setDraft(null);
+              await refreshJobs();
+              setSelectedJobId(job.id);
+              setPanel("detail");
+            })
+          }
+          onSelect={selectJob}
+          onCancelJob={(id, reason) => run(() => api.cancel(id, reason).then(refreshJobs).then(refreshSelected))}
+          loadCandidates={async (id) => {
+            try {
+              return await api.candidates(id);
+            } catch (e) {
+              setJobError(e instanceof Error ? e.message : "Couldn't load drivers.");
+              return [];
+            }
+          }}
+          onOffer={(jobId, vehicleId) => run(() => api.offer(jobId, vehicleId).then(refreshSelected).then(refreshJobs))}
+          onFocus={(at) => flyTo(at)}
+        />
+      </section>
     </div>
   );
 }
@@ -335,6 +511,14 @@ function MoonIcon() {
   return (
     <svg {...iconProps}>
       <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z" />
+    </svg>
+  );
+}
+
+function LogoutIcon() {
+  return (
+    <svg {...iconProps}>
+      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" />
     </svg>
   );
 }

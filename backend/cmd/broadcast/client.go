@@ -16,7 +16,7 @@ const clientQueue = 4
 // owned by the Hub and only touched under Hub.mu.
 type client struct {
 	conn *websocket.Conn
-	send chan *pb.FleetUpdate
+	send chan *pb.DashboardServerMessage
 
 	viewport      *pb.BoundingBox
 	has           map[string]struct{}
@@ -24,13 +24,17 @@ type client struct {
 }
 
 func newClient(conn *websocket.Conn) *client {
-	return &client{conn: conn, send: make(chan *pb.FleetUpdate, clientQueue)}
+	return &client{conn: conn, send: make(chan *pb.DashboardServerMessage, clientQueue)}
 }
 
 // enqueue never blocks the hub; it reports false when the client is behind.
 func (c *client) enqueue(u *pb.FleetUpdate) bool {
+	return c.enqueueMsg(&pb.DashboardServerMessage{Payload: &pb.DashboardServerMessage_FleetUpdate{FleetUpdate: u}})
+}
+
+func (c *client) enqueueMsg(m *pb.DashboardServerMessage) bool {
 	select {
-	case c.send <- u:
+	case c.send <- m:
 		return true
 	default:
 		return false
@@ -42,10 +46,8 @@ func (c *client) writeLoop(ctx context.Context) error {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
-		case u := <-c.send:
-			data, err := proto.Marshal(&pb.DashboardServerMessage{
-				Payload: &pb.DashboardServerMessage_FleetUpdate{FleetUpdate: u},
-			})
+		case m := <-c.send:
+			data, err := proto.Marshal(m)
 			if err != nil {
 				return err
 			}

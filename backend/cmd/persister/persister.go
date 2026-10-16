@@ -103,6 +103,20 @@ func (p *Persister) decode(msg redis.XMessage, buf *pending) {
 	}
 }
 
+// trim drops stream entries that every persister has stored: everything
+// older than the oldest still-pending entry (or than lastAcked if none is
+// pending). Broadcast only reads new entries, so it doesn't need them.
+// Without this the stream sits at its MAXLEN cap and Redis restarts slowly.
+func (p *Persister) trim(ctx context.Context, lastAcked string) {
+	minID := lastAcked
+	if sum, err := p.rdb.XPending(ctx, stream.Telemetry, stream.PersisterGroup).Result(); err == nil && sum.Count > 0 {
+		minID = sum.Lower
+	}
+	if err := p.rdb.XTrimMinIDApprox(ctx, stream.Telemetry, minID, 0).Err(); err != nil {
+		p.log.Warn("trim stream", "err", err)
+	}
+}
+
 // flush retries until the batch commits (or shutdown): unacked entries would
 // otherwise be re-read only after a restart.
 func (p *Persister) flush(ctx context.Context, buf *pending) {
@@ -124,6 +138,7 @@ func (p *Persister) flush(ctx context.Context, buf *pending) {
 				"duplicates", int64(len(buf.rows))-inserted,
 				"took_ms", time.Since(start).Milliseconds(),
 			)
+			p.trim(ctx, buf.ids[len(buf.ids)-1])
 			*buf = pending{}
 			return
 		}

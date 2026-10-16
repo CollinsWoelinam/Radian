@@ -1,10 +1,20 @@
 COMPOSE := docker compose --env-file .env -f infra/docker-compose.yml
 
-.PHONY: up down reset migrate psql redis proto proto-lint
+.PHONY: up down reset migrate psql redis proto proto-lint osrm-data
 
-up:            ## Start Postgres (Timescale+PostGIS) and Redis, apply migrations
+up:            ## Start Postgres (Timescale+PostGIS), Redis and OSRM; apply migrations
 	$(COMPOSE) up -d postgres redis
 	$(COMPOSE) run --rm migrate
+	@if [ -f infra/osrm/ghana-latest.osrm.mldgr ]; then $(COMPOSE) up -d osrm; \
+	 else echo "OSRM data missing: run 'make osrm-data' for road routing (dispatch falls back to estimates)"; fi
+
+OSRM_IMAGE := ghcr.io/project-osrm/osrm-backend:v5.27.1
+osrm-data:     ## Download Ghana's road network and build OSRM routing data (~10 min)
+	mkdir -p infra/osrm
+	curl -L --retry 5 -o infra/osrm/ghana-latest.osm.pbf https://download.geofabrik.de/africa/ghana-latest.osm.pbf
+	docker run --rm -v "$(CURDIR)/infra/osrm:/data" $(OSRM_IMAGE) osrm-extract -p /opt/car.lua /data/ghana-latest.osm.pbf
+	docker run --rm -v "$(CURDIR)/infra/osrm:/data" $(OSRM_IMAGE) osrm-partition /data/ghana-latest.osrm
+	docker run --rm -v "$(CURDIR)/infra/osrm:/data" $(OSRM_IMAGE) osrm-customize /data/ghana-latest.osrm
 
 down:          ## Stop the stack (keeps data)
 	$(COMPOSE) down

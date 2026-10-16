@@ -24,6 +24,7 @@ export class FleetSocket {
     private url: string,
     private onUpdate: (u: FleetUpdate) => void,
     private onState: (s: ConnectionState) => void,
+    private onJobsChanged: (jobIds: string[]) => void = () => {},
   ) {}
 
   connect() {
@@ -41,6 +42,7 @@ export class FleetSocket {
     ws.onmessage = (ev) => {
       const msg = fromBinary(DashboardServerMessageSchema, new Uint8Array(ev.data as ArrayBuffer));
       if (msg.payload.case === "fleetUpdate") this.onUpdate(msg.payload.value);
+      else if (msg.payload.case === "jobsChanged") this.onJobsChanged(msg.payload.value.jobIds);
     };
     ws.onclose = () => {
       if (this.closed) return;

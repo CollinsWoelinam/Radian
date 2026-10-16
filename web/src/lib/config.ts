@@ -1,6 +1,7 @@
 import { VehicleStatus } from "@/gen/radian/telemetry/v1/telemetry_pb";
 
 export const BROADCAST_URL = process.env.NEXT_PUBLIC_BROADCAST_URL ?? "http://localhost:8082";
+export const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080";
 export const FLEET_WS_URL = BROADCAST_URL.replace(/^http/, "ws") + "/v1/fleet/ws";
 
 export const MAP_STYLES = {

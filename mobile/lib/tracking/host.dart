@@ -8,6 +8,7 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 import '../auth/session.dart';
 import '../config.dart';
+import '../gen/radian/telemetry/v1/telemetry.pb.dart';
 import 'engine.dart';
 import 'motion.dart';
 import 'point_buffer.dart';
@@ -36,18 +37,21 @@ abstract class TrackerHost {
   Stream<TrackerStatus> get status;
 }
 
-Future<TrackingEngine> _newEngine(Session session) async => TrackingEngine(
+Future<TrackingEngine> _newEngine(Session session, {void Function(JobOffer)? onJobOffer}) async => TrackingEngine(
       token: session.token,
       ingestUrl: AppConfig.ingestUrl,
       buffer: await PointBuffer.open(),
       startedAt: await ShiftStore.startedAt(),
       refreshToken: SessionStore.freshToken,
+      onJobOffer: onJobOffer,
     );
 
 // --- Android ----------------------------------------------------------------
 
 const _channelId = 'radian_tracking';
 const _notificationId = 4207;
+const _jobsChannelId = 'radian_jobs';
+const _jobNotificationId = 4208;
 
 class AndroidTrackerHost implements TrackerHost {
   final _service = FlutterBackgroundService();
@@ -64,6 +68,14 @@ class AndroidTrackerHost implements TrackerHost {
           'Shift tracking',
           description: 'Shown while your location is shared during a shift.',
           importance: Importance.low,
+        ));
+    await notifications
+        .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
+        ?.createNotificationChannel(const AndroidNotificationChannel(
+          _jobsChannelId,
+          'Job offers',
+          description: 'New jobs from dispatch. You have about 30 seconds to accept.',
+          importance: Importance.high,
         ));
 
     await _service.configure(
@@ -92,9 +104,15 @@ class AndroidTrackerHost implements TrackerHost {
   @override
   Future<bool> isRunning() => _service.isRunning();
 
+  Future<void>? _starting;
+
+  /// Idempotent: concurrent calls share one start.
   @override
-  Future<void> start() async {
+  Future<void> start() => _starting ??= _start().whenComplete(() => _starting = null);
+
+  Future<void> _start() async {
     await ShiftStore.begin();
+    if (await _service.isRunning()) return;
     await _service.startService();
   }
 
@@ -140,7 +158,31 @@ Future<void> trackingServiceMain(ServiceInstance service) async {
     return;
   }
 
-  final engine = await _newEngine(session);
+  // Heads-up notification for offers, so a driver with the app in the
+  // background still sees them in time. Tapping it opens the app.
+  final notifications = FlutterLocalNotificationsPlugin();
+  await notifications.initialize(
+    settings: const InitializationSettings(android: AndroidInitializationSettings('ic_bg_service_small')),
+  );
+  final engine = await _newEngine(session, onJobOffer: (offer) {
+    final where = offer.pickupAddress.isNotEmpty ? offer.pickupAddress : 'a pickup nearby';
+    final mins = (offer.etaSeconds / 60).ceil();
+    notifications.show(
+      id: _jobNotificationId,
+      title: '${offer.priority <= 2 ? 'URGENT job' : 'New job'} #${offer.number}',
+      body: '$where · $mins min away. Open Radian to accept.',
+      notificationDetails: const NotificationDetails(
+        android: AndroidNotificationDetails(
+          _jobsChannelId,
+          'Job offers',
+          importance: Importance.high,
+          priority: Priority.high,
+          category: AndroidNotificationCategory.call,
+          timeoutAfter: 30000,
+        ),
+      ),
+    );
+  });
 
   String? lastNotice;
   engine.status.listen((s) {
@@ -193,8 +235,14 @@ class InProcessTrackerHost implements TrackerHost {
   @override
   Future<bool> isRunning() async => _engine?.current.running ?? false;
 
+  Future<void>? _starting;
+
+  /// Idempotent: concurrent calls share one start, so two engines can never
+  /// write to the same outbox.
   @override
-  Future<void> start() async {
+  Future<void> start() => _starting ??= _start().whenComplete(() => _starting = null);
+
+  Future<void> _start() async {
     if (_engine != null) return;
     final session = await SessionStore.load();
     if (session == null) {

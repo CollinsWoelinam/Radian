@@ -64,6 +64,8 @@ func main() {
 		sessions: make(map[string]*session),
 	}
 
+	go srv.forwardDispatch(ctx)
+
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /v1/telemetry/ws", srv.handleWS)
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {

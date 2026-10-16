@@ -15,8 +15,8 @@ func drain(c *client) []*pb.FleetUpdate {
 	var out []*pb.FleetUpdate
 	for {
 		select {
-		case u := <-c.send:
-			out = append(out, u)
+		case m := <-c.send:
+			out = append(out, m.GetFleetUpdate())
 		default:
 			return out
 		}

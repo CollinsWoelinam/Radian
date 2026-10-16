@@ -1,36 +1,37 @@
-// Command api serves Radian's REST endpoints. For now that is driver login,
-// which exchanges phone + password for a device token bound to the vehicle the
-// driver is currently assigned to. Dispatch endpoints land here next.
+// Command api serves Radian's REST endpoints: driver and dispatcher sign-in,
+// the jobs API for the dashboard, the driver's job actions, and the dispatch
+// engine that offers each job to the nearest available vehicle by drive time.
 package main
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"log/slog"
 	"net"
 	"net/http"
 	"os"
 	"os/signal"
+	"slices"
 	"strings"
-	"sync"
 	"syscall"
 	"time"
 
-	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"golang.org/x/crypto/bcrypt"
+	"github.com/redis/go-redis/v9"
 
 	"github.com/CollinsWoelinam/Radian/backend/internal/auth"
 	"github.com/CollinsWoelinam/Radian/backend/internal/config"
+	"github.com/CollinsWoelinam/Radian/backend/internal/osrm"
 )
 
 type app struct {
-	log      *slog.Logger
-	pool     *pgxpool.Pool
-	tokens   *auth.Tokens
-	tokenTTL time.Duration
-	limiter  *loginLimiter
+	log            *slog.Logger
+	pool           *pgxpool.Pool
+	tokens         *auth.Tokens
+	tokenTTL       time.Duration
+	limiter        *loginLimiter
+	dispatch       *Dispatcher
+	allowedOrigins []string
 }
 
 func main() {
@@ -52,23 +53,57 @@ func main() {
 	}
 	defer pool.Close()
 
+	ropts, err := redis.ParseURL(config.String("REDIS_URL", "redis://localhost:6380/0"))
+	if err != nil {
+		log.Error("parse REDIS_URL", "err", err)
+		os.Exit(1)
+	}
+	rdb := redis.NewClient(ropts)
+	defer rdb.Close()
+
 	a := &app{
 		log:      log,
 		pool:     pool,
 		tokens:   tokens,
 		tokenTTL: config.Duration("DEVICE_TOKEN_TTL", 7*24*time.Hour),
 		limiter:  newLoginLimiter(10, time.Minute),
+		dispatch: &Dispatcher{
+			log:          log,
+			pool:         pool,
+			notify:       &Notifier{rdb: rdb, log: log},
+			osrm:         osrm.New(config.String("OSRM_URL", "http://localhost:5001")),
+			offerTTL:     config.Duration("DISPATCH_OFFER_TTL", 30*time.Second),
+			retryEvery:   config.Duration("DISPATCH_RETRY_EVERY", 15*time.Second),
+			onlineWithin: config.Duration("DISPATCH_ONLINE_WITHIN", 2*time.Minute),
+			maxRadiusM:   config.Float("DISPATCH_MAX_RADIUS_M", 30_000),
+		},
+		allowedOrigins: strings.Split(config.String("API_ALLOWED_ORIGINS", "http://localhost:3000"), ","),
 	}
+	go a.dispatch.Run(ctx)
 
 	mux := http.NewServeMux()
+	// Sign-in
 	mux.HandleFunc("POST /v1/auth/driver/login", a.handleDriverLogin)
 	mux.HandleFunc("POST /v1/auth/device/refresh", a.handleDeviceRefresh)
+	mux.HandleFunc("POST /v1/auth/dispatcher/login", a.handleDispatcherLogin)
+	// Dashboard (dispatcher token)
+	mux.Handle("GET /v1/jobs", a.dispatcherOnly(a.handleListJobs))
+	mux.Handle("POST /v1/jobs", a.dispatcherOnly(a.handleCreateJob))
+	mux.Handle("GET /v1/jobs/{id}", a.dispatcherOnly(a.handleGetJob))
+	mux.Handle("GET /v1/jobs/{id}/candidates", a.dispatcherOnly(a.handleJobCandidates))
+	mux.Handle("POST /v1/jobs/{id}/offer", a.dispatcherOnly(a.handleOfferJob))
+	mux.Handle("POST /v1/jobs/{id}/cancel", a.dispatcherOnly(a.handleCancelJob))
+	// Driver app (device token)
+	mux.Handle("GET /v1/driver/job", a.deviceOnly(a.handleDriverCurrentJob))
+	mux.Handle("POST /v1/driver/jobs/{id}/accept", a.deviceOnly(a.handleDriverAccept))
+	mux.Handle("POST /v1/driver/jobs/{id}/decline", a.deviceOnly(a.handleDriverDecline))
+	mux.Handle("POST /v1/driver/jobs/{id}/status", a.deviceOnly(a.handleDriverStatus))
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, _ *http.Request) { w.Write([]byte("ok")) })
 
 	addr := config.String("API_ADDR", ":8080")
 	srv := &http.Server{
 		Addr:              addr,
-		Handler:           mux,
+		Handler:           a.cors(mux),
 		ReadHeaderTimeout: 10 * time.Second,
 		BaseContext:       func(net.Listener) context.Context { return ctx },
 	}
@@ -86,199 +121,56 @@ func main() {
 	}
 }
 
-type loginRequest struct {
-	Phone    string `json:"phone"`
-	Password string `json:"password"`
+type ctxKey int
+
+const subjectKey ctxKey = 0
+
+// subject returns the dispatcher or vehicle ID the request was authenticated as.
+func subject(r *http.Request) string {
+	s, _ := r.Context().Value(subjectKey).(string)
+	return s
 }
 
-type loginResponse struct {
-	Token     string    `json:"token"`
-	ExpiresAt time.Time `json:"expires_at"`
-	Driver    struct {
-		ID       string `json:"id"`
-		FullName string `json:"full_name"`
-	} `json:"driver"`
-	Vehicle struct {
-		ID           string `json:"id"`
-		LicensePlate string `json:"license_plate"`
-		Kind         string `json:"kind"`
-	} `json:"vehicle"`
-}
-
-// A valid hash to compare against when the phone is unknown, so response
-// time doesn't reveal which phone numbers are registered.
-var dummyHash, _ = bcrypt.GenerateFromPassword([]byte("radian-timing-equalizer"), bcrypt.DefaultCost)
-
-func (a *app) handleDriverLogin(w http.ResponseWriter, r *http.Request) {
-	var req loginRequest
-	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 4<<10)).Decode(&req); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid_request", "Expected JSON with phone and password.")
-		return
-	}
-	req.Phone = normalizePhone(req.Phone)
-	if req.Phone == "" || req.Password == "" {
-		writeError(w, http.StatusBadRequest, "invalid_request", "Phone and password are required.")
-		return
-	}
-	if !a.limiter.allow(req.Phone) {
-		a.log.Warn("driver login rate limited", "phone_suffix", phoneSuffix(req.Phone))
-		writeError(w, http.StatusTooManyRequests, "rate_limited", "Too many attempts. Try again in a minute.")
-		return
-	}
-
-	var (
-		resp         loginResponse
-		passwordHash string
-		vehicleID    *string
-		plate, kind  *string
-	)
-	err := a.pool.QueryRow(r.Context(), `
-		SELECT d.id, d.full_name, d.password_hash, v.id, v.license_plate, v.kind::text
-		FROM drivers d
-		LEFT JOIN vehicle_assignments va ON va.driver_id = d.id AND va.ended_at IS NULL
-		LEFT JOIN vehicles v ON v.id = va.vehicle_id
-		WHERE d.phone = $1`, req.Phone,
-	).Scan(&resp.Driver.ID, &resp.Driver.FullName, &passwordHash, &vehicleID, &plate, &kind)
-	if errors.Is(err, pgx.ErrNoRows) {
-		bcrypt.CompareHashAndPassword(dummyHash, []byte(req.Password))
-		a.log.Info("driver login failed", "reason", "unknown_phone", "phone_suffix", phoneSuffix(req.Phone))
-		writeError(w, http.StatusUnauthorized, "invalid_credentials", "Phone number or password is incorrect.")
-		return
-	}
-	if err != nil {
-		a.log.Error("login query", "err", err)
-		writeError(w, http.StatusInternalServerError, "internal", "Something went wrong. Try again.")
-		return
-	}
-	if bcrypt.CompareHashAndPassword([]byte(passwordHash), []byte(req.Password)) != nil {
-		a.log.Info("driver login failed", "reason", "bad_password", "driver_id", resp.Driver.ID)
-		writeError(w, http.StatusUnauthorized, "invalid_credentials", "Phone number or password is incorrect.")
-		return
-	}
-	if vehicleID == nil {
-		writeError(w, http.StatusConflict, "no_vehicle", "You are not assigned to a vehicle. Ask your dispatcher.")
-		return
-	}
-
-	resp.Vehicle.ID, resp.Vehicle.LicensePlate, resp.Vehicle.Kind = *vehicleID, *plate, *kind
-	resp.ExpiresAt = time.Now().Add(a.tokenTTL).UTC()
-	resp.Token, err = a.tokens.IssueDevice(*vehicleID, a.tokenTTL)
-	if err != nil {
-		a.log.Error("issue token", "err", err)
-		writeError(w, http.StatusInternalServerError, "internal", "Something went wrong. Try again.")
-		return
-	}
-	a.limiter.reset(req.Phone)
-	a.log.Info("driver login", "driver_id", resp.Driver.ID, "vehicle_id", resp.Vehicle.ID)
-	writeJSON(w, http.StatusOK, resp)
-}
-
-type refreshResponse struct {
-	Token     string    `json:"token"`
-	ExpiresAt time.Time `json:"expires_at"`
-}
-
-// handleDeviceRefresh swaps a still-valid device token for a fresh one, so a
-// driver on a long run of shifts is never signed out mid-shift. It refuses
-// once the vehicle no longer has an active assignment.
-func (a *app) handleDeviceRefresh(w http.ResponseWriter, r *http.Request) {
-	token, ok := strings.CutPrefix(r.Header.Get("Authorization"), "Bearer ")
-	if !ok {
-		writeError(w, http.StatusUnauthorized, "invalid_token", "Sign in again.")
-		return
-	}
-	vehicleID, err := a.tokens.VerifyDevice(token)
-	if err != nil {
-		writeError(w, http.StatusUnauthorized, "invalid_token", "Sign in again.")
-		return
-	}
-	var assigned bool
-	err = a.pool.QueryRow(r.Context(),
-		`SELECT EXISTS (SELECT 1 FROM vehicle_assignments WHERE vehicle_id = $1 AND ended_at IS NULL)`,
-		vehicleID).Scan(&assigned)
-	if err != nil {
-		a.log.Error("refresh query", "err", err)
-		writeError(w, http.StatusInternalServerError, "internal", "Something went wrong. Try again.")
-		return
-	}
-	if !assigned {
-		writeError(w, http.StatusUnauthorized, "no_vehicle", "You are no longer assigned to this vehicle. Sign in again.")
-		return
-	}
-	resp := refreshResponse{ExpiresAt: time.Now().Add(a.tokenTTL).UTC()}
-	if resp.Token, err = a.tokens.IssueDevice(vehicleID, a.tokenTTL); err != nil {
-		a.log.Error("issue token", "err", err)
-		writeError(w, http.StatusInternalServerError, "internal", "Something went wrong. Try again.")
-		return
-	}
-	a.log.Info("device token refreshed", "vehicle_id", vehicleID)
-	writeJSON(w, http.StatusOK, resp)
-}
-
-// phoneSuffix logs only the last 3 digits, enough to correlate attempts
-// without writing full phone numbers to logs.
-func phoneSuffix(p string) string {
-	if len(p) <= 3 {
-		return p
-	}
-	return "…" + p[len(p)-3:]
-}
-
-// normalizePhone keeps digits and a leading +, so "024 000 0001" and
-// "0240000001" match the same driver.
-func normalizePhone(p string) string {
-	var b strings.Builder
-	for i, c := range strings.TrimSpace(p) {
-		if (c >= '0' && c <= '9') || (c == '+' && i == 0) {
-			b.WriteRune(c)
+func (a *app) requireAudience(audience string, next http.HandlerFunc) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		token, ok := strings.CutPrefix(r.Header.Get("Authorization"), "Bearer ")
+		if !ok {
+			writeError(w, http.StatusUnauthorized, "unauthorized", "Sign in to continue.")
+			return
 		}
-	}
-	return b.String()
-}
-
-func writeJSON(w http.ResponseWriter, status int, v any) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
-	json.NewEncoder(w).Encode(v)
-}
-
-func writeError(w http.ResponseWriter, status int, code, message string) {
-	writeJSON(w, status, map[string]string{"error": code, "message": message})
-}
-
-// loginLimiter allows n attempts per phone per window. In-memory is enough
-// for a single api instance; move it to Redis when scaling out.
-type loginLimiter struct {
-	n      int
-	window time.Duration
-	mu     sync.Mutex
-	hits   map[string][]time.Time
-}
-
-func newLoginLimiter(n int, window time.Duration) *loginLimiter {
-	return &loginLimiter{n: n, window: window, hits: make(map[string][]time.Time)}
-}
-
-func (l *loginLimiter) allow(key string) bool {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-	now := time.Now()
-	recent := l.hits[key][:0]
-	for _, t := range l.hits[key] {
-		if now.Sub(t) < l.window {
-			recent = append(recent, t)
+		sub, err := a.tokens.Verify(audience, token)
+		if err != nil {
+			writeError(w, http.StatusUnauthorized, "unauthorized", "Your session has expired. Sign in again.")
+			return
 		}
-	}
-	if len(recent) >= l.n {
-		l.hits[key] = recent
-		return false
-	}
-	l.hits[key] = append(recent, now)
-	return true
+		next(w, r.WithContext(context.WithValue(r.Context(), subjectKey, sub)))
+	})
 }
 
-func (l *loginLimiter) reset(key string) {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-	delete(l.hits, key)
+func (a *app) dispatcherOnly(next http.HandlerFunc) http.Handler {
+	return a.requireAudience(auth.AudienceDispatcher, next)
+}
+
+func (a *app) deviceOnly(next http.HandlerFunc) http.Handler {
+	return a.requireAudience(auth.AudienceDevice, next)
+}
+
+// cors lets the dashboard (a different origin in development) call the API
+// with a bearer token. Native apps send no Origin and are unaffected.
+func (a *app) cors(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if origin := r.Header.Get("Origin"); origin != "" && slices.Contains(a.allowedOrigins, origin) {
+			h := w.Header()
+			h.Set("Access-Control-Allow-Origin", origin)
+			h.Set("Vary", "Origin")
+			h.Set("Access-Control-Allow-Headers", "Authorization, Content-Type")
+			h.Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+			h.Set("Access-Control-Max-Age", "600")
+		}
+		if r.Method == http.MethodOptions {
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
 }

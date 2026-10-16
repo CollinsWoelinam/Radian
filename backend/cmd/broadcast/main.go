@@ -22,11 +22,13 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	pb "github.com/CollinsWoelinam/Radian/backend/gen/radian/telemetry/v1"
+	"github.com/CollinsWoelinam/Radian/backend/internal/auth"
 	"github.com/CollinsWoelinam/Radian/backend/internal/config"
 	"github.com/CollinsWoelinam/Radian/backend/internal/stream"
 )
 
 type app struct {
+	tokens         *auth.Tokens
 	log            *slog.Logger
 	rdb            *redis.Client
 	pool           *pgxpool.Pool
@@ -56,7 +58,14 @@ func main() {
 	rdb := redis.NewClient(ropts)
 	defer rdb.Close()
 
+	tokens, err := auth.New(config.String("JWT_SECRET", ""))
+	if err != nil {
+		log.Error("auth setup", "err", err)
+		os.Exit(1)
+	}
+
 	a := &app{
+		tokens:         tokens,
 		log:            log,
 		rdb:            rdb,
 		pool:           pool,
@@ -83,6 +92,7 @@ func main() {
 	log.Info("snapshot loaded", "vehicles", n)
 
 	go a.tailStream(ctx, cursor)
+	go a.forwardJobs(ctx)
 	go a.every(ctx, config.Duration("BROADCAST_TICK", time.Second), a.hub.Tick)
 	go a.every(ctx, 10*time.Second, func(time.Time) {
 		if err := a.refreshAssigned(ctx); err != nil && ctx.Err() == nil {
@@ -92,7 +102,7 @@ func main() {
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /v1/fleet/ws", a.handleWS)
-	mux.HandleFunc("GET /v1/vehicles", a.handleVehicles)
+	mux.HandleFunc("GET /v1/vehicles", a.requireDispatcher(a.handleVehicles))
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, _ *http.Request) { w.Write([]byte("ok")) })
 	mux.HandleFunc("GET /metrics", func(w http.ResponseWriter, _ *http.Request) {
 		v, c := a.hub.Stats()
@@ -122,7 +132,11 @@ func main() {
 }
 
 func (a *app) handleWS(w http.ResponseWriter, r *http.Request) {
-	// TODO(dispatch step): require a dispatcher session; origin check only for now.
+	// Browsers can't set headers on a WebSocket upgrade, so the token rides in the query.
+	if _, err := a.tokens.Verify(auth.AudienceDispatcher, r.URL.Query().Get("token")); err != nil {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
 	conn, err := websocket.Accept(w, r, &websocket.AcceptOptions{OriginPatterns: a.allowedOrigins})
 	if err != nil {
 		return
@@ -187,6 +201,38 @@ func (a *app) handleVehicles(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(out)
 }
 
+func (a *app) requireDispatcher(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		token, _ := strings.CutPrefix(r.Header.Get("Authorization"), "Bearer ")
+		if _, err := a.tokens.Verify(auth.AudienceDispatcher, token); err != nil {
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
+			return
+		}
+		next(w, r)
+	}
+}
+
+// forwardJobs relays JobsChanged notices from the api service to dashboards.
+func (a *app) forwardJobs(ctx context.Context) {
+	ps := a.rdb.Subscribe(ctx, stream.JobsChannel)
+	go func() {
+		<-ctx.Done()
+		ps.Close()
+	}()
+	for m := range ps.Channel() {
+		var jc pb.JobsChanged
+		if proto.Unmarshal([]byte(m.Payload), &jc) != nil {
+			continue
+		}
+		// Job changes often flip a vehicle to/from ON_JOB; refresh now rather
+		// than waiting for the periodic poll.
+		if err := a.refreshAssigned(ctx); err != nil && ctx.Err() == nil {
+			a.log.Warn("refresh vehicle statuses", "err", err)
+		}
+		a.hub.Notify(&pb.DashboardServerMessage{Payload: &pb.DashboardServerMessage_JobsChanged{JobsChanged: &jc}})
+	}
+}
+
 func (a *app) cors(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if origin := r.Header.Get("Origin"); origin != "" {
@@ -195,8 +241,13 @@ func (a *app) cors(next http.Handler) http.Handler {
 				if host == allowed {
 					w.Header().Set("Access-Control-Allow-Origin", origin)
 					w.Header().Set("Vary", "Origin")
+					w.Header().Set("Access-Control-Allow-Headers", "Authorization")
 				}
 			}
+		}
+		if r.Method == http.MethodOptions {
+			w.WriteHeader(http.StatusNoContent)
+			return
 		}
 		next.ServeHTTP(w, r)
 	})

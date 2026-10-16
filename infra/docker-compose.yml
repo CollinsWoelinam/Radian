@@ -32,6 +32,20 @@ services:
       timeout: 3s
       retries: 20
 
+  osrm:
+    # Road routing for dispatch ETAs and map routes. Data: `make osrm-data`.
+    image: ghcr.io/project-osrm/osrm-backend:v5.27.1
+    command: ["osrm-routed", "--algorithm", "mld", "--max-table-size", "1000", "/data/ghana-latest.osrm"]
+    ports:
+      - "${OSRM_PORT:-5001}:5000"   # 5000 is taken by AirPlay on macOS
+    volumes:
+      - ./osrm:/data:ro
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fs 'http://localhost:5000/route/v1/driving/-0.2,5.6;-0.19,5.61' >/dev/null || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
   migrate:
     image: migrate/migrate:v4.18.1
     depends_on:

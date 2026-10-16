@@ -10,7 +10,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file radian/telemetry/v1/telemetry.proto.
  */
 export const file_radian_telemetry_v1_telemetry: GenFile = /*@__PURE__*/
-  fileDesc("CiNyYWRpYW4vdGVsZW1ldHJ5L3YxL3RlbGVtZXRyeS5wcm90bxITcmFkaWFuLnRlbGVtZXRyeS52MSKjAgoNTG9jYXRpb25Qb2ludBILCgNzZXEYASABKAMSEAoIbGF0aXR1ZGUYAiABKAESEQoJbG9uZ2l0dWRlGAMgASgBEhYKDnJlY29yZGVkX2F0X21zGAQgASgDEhYKCXNwZWVkX2ttaBgFIAEoAkgAiAEBEhgKC2hlYWRpbmdfZGVnGAYgASgCSAGIAQESFwoKYWNjdXJhY3lfbRgHIAEoAkgCiAEBEhcKCmFsdGl0dWRlX20YCCABKAJIA4gBARIYCgtiYXR0ZXJ5X3BjdBgJIAEoBUgEiAEBQgwKCl9zcGVlZF9rbWhCDgoMX2hlYWRpbmdfZGVnQg0KC19hY2N1cmFjeV9tQg0KC19hbHRpdHVkZV9tQg4KDF9iYXR0ZXJ5X3BjdCJZCg5UZWxlbWV0cnlCYXRjaBIyCgZwb2ludHMYASADKAsyIi5yYWRpYW4udGVsZW1ldHJ5LnYxLkxvY2F0aW9uUG9pbnQSEwoLaXNfYmFja2ZpbGwYAiABKAgiIwoJSGVhcnRiZWF0EhYKDmNsaWVudF90aW1lX21zGAEgASgDIsEBCg1DbGllbnRNZXNzYWdlEjQKBWJhdGNoGAEgASgLMiMucmFkaWFuLnRlbGVtZXRyeS52MS5UZWxlbWV0cnlCYXRjaEgAEjMKCWhlYXJ0YmVhdBgCIAEoCzIeLnJhZGlhbi50ZWxlbWV0cnkudjEuSGVhcnRiZWF0SAASOgoKam9iX3N0YXR1cxgDIAEoCzIkLnJhZGlhbi50ZWxlbWV0cnkudjEuSm9iU3RhdHVzVXBkYXRlSABCCQoHcGF5bG9hZCIdCghCYXRjaEFjaxIRCglhY2tlZF9zZXEYASABKAMifQoOVHJhY2tpbmdDb25maWcSGgoSbW92aW5nX2ludGVydmFsX21zGAEgASgFEhkKEWRpc3RhbmNlX2ZpbHRlcl9tGAIgASgFEhYKDm1heF9hY2N1cmFjeV9tGAMgASgCEhwKFHN0YXRpb25hcnlfc3BlZWRfa21oGAQgASgCIrMBCg1TZXJ2ZXJNZXNzYWdlEiwKA2FjaxgBIAEoCzIdLnJhZGlhbi50ZWxlbWV0cnkudjEuQmF0Y2hBY2tIABI1CgZjb25maWcYAiABKAsyIy5yYWRpYW4udGVsZW1ldHJ5LnYxLlRyYWNraW5nQ29uZmlnSAASMgoJam9iX29mZmVyGAMgASgLMh0ucmFkaWFuLnRlbGVtZXRyeS52MS5Kb2JPZmZlckgAQgkKB3BheWxvYWQiLwoIR2VvUG9pbnQSEAoIbGF0aXR1ZGUYASABKAESEQoJbG9uZ2l0dWRlGAIgASgBIooCCghKb2JPZmZlchIOCgZqb2JfaWQYASABKAkSLQoGcGlja3VwGAIgASgLMh0ucmFkaWFuLnRlbGVtZXRyeS52MS5HZW9Qb2ludBIWCg5waWNrdXBfYWRkcmVzcxgDIAEoCRIzCgdkcm9wb2ZmGAQgASgLMh0ucmFkaWFuLnRlbGVtZXRyeS52MS5HZW9Qb2ludEgAiAEBEhwKD2Ryb3BvZmZfYWRkcmVzcxgFIAEoCUgBiAEBEhAKCHByaW9yaXR5GAYgASgFEhMKC2V0YV9zZWNvbmRzGAcgASgFEg0KBW5vdGVzGAggASgJQgoKCF9kcm9wb2ZmQhIKEF9kcm9wb2ZmX2FkZHJlc3MiaQoPSm9iU3RhdHVzVXBkYXRlEg4KBmpvYl9pZBgBIAEoCRIuCgZzdGF0dXMYAiABKA4yHi5yYWRpYW4udGVsZW1ldHJ5LnYxLkpvYlN0YXR1cxIWCg5vY2N1cnJlZF9hdF9tcxgDIAEoAyJRCgtCb3VuZGluZ0JveBIPCgdtaW5fbG9uGAEgASgBEg8KB21pbl9sYXQYAiABKAESDwoHbWF4X2xvbhgDIAEoARIPCgdtYXhfbGF0GAQgASgBIkgKEkRhc2hib2FyZFN1YnNjcmliZRIyCgh2aWV3cG9ydBgBIAEoCzIgLnJhZGlhbi50ZWxlbWV0cnkudjEuQm91bmRpbmdCb3giYQoWRGFzaGJvYXJkQ2xpZW50TWVzc2FnZRI8CglzdWJzY3JpYmUYASABKAsyJy5yYWRpYW4udGVsZW1ldHJ5LnYxLkRhc2hib2FyZFN1YnNjcmliZUgAQgkKB3BheWxvYWQiuwEKDFZlaGljbGVEZWx0YRISCgp2ZWhpY2xlX2lkGAEgASgJEhAKCGxhdGl0dWRlGAIgASgBEhEKCWxvbmdpdHVkZRgDIAEoARITCgtoZWFkaW5nX2RlZxgEIAEoAhIRCglzcGVlZF9rbWgYBSABKAISMgoGc3RhdHVzGAYgASgOMiIucmFkaWFuLnRlbGVtZXRyeS52MS5WZWhpY2xlU3RhdHVzEhYKDnJlY29yZGVkX2F0X21zGAcgASgDIooBCgtGbGVldFVwZGF0ZRIxCgZkZWx0YXMYASADKAsyIS5yYWRpYW4udGVsZW1ldHJ5LnYxLlZlaGljbGVEZWx0YRIbChNyZW1vdmVkX3ZlaGljbGVfaWRzGAIgAygJEhYKDnNlcnZlcl90aW1lX21zGAMgASgDEhMKC2lzX3NuYXBzaG90GAQgASgIIl0KFkRhc2hib2FyZFNlcnZlck1lc3NhZ2USOAoMZmxlZXRfdXBkYXRlGAEgASgLMiAucmFkaWFuLnRlbGVtZXRyeS52MS5GbGVldFVwZGF0ZUgAQgkKB3BheWxvYWQq5QEKCUpvYlN0YXR1cxIaChZKT0JfU1RBVFVTX1VOU1BFQ0lGSUVEEAASFgoSSk9CX1NUQVRVU19QRU5ESU5HEAESFwoTSk9CX1NUQVRVU19BU1NJR05FRBACEh4KGkpPQl9TVEFUVVNfRU5fUk9VVEVfUElDS1VQEAMSFgoSSk9CX1NUQVRVU19PTl9TSVRFEAQSHwobSk9CX1NUQVRVU19FTl9ST1VURV9EUk9QT0ZGEAUSGAoUSk9CX1NUQVRVU19DT01QTEVURUQQBhIYChRKT0JfU1RBVFVTX0NBTkNFTExFRBAHKpwBCg1WZWhpY2xlU3RhdHVzEh4KGlZFSElDTEVfU1RBVFVTX1VOU1BFQ0lGSUVEEAASGgoWVkVISUNMRV9TVEFUVVNfT0ZGTElORRABEhcKE1ZFSElDTEVfU1RBVFVTX0lETEUQAhIbChdWRUhJQ0xFX1NUQVRVU19FTl9ST1VURRADEhkKFVZFSElDTEVfU1RBVFVTX09OX0pPQhAEQk9aTWdpdGh1Yi5jb20vQ29sbGluc1dvZWxpbmFtL1JhZGlhbi9iYWNrZW5kL2dlbi9yYWRpYW4vdGVsZW1ldHJ5L3YxO3RlbGVtZXRyeXYxYgZwcm90bzM");
+  fileDesc("CiNyYWRpYW4vdGVsZW1ldHJ5L3YxL3RlbGVtZXRyeS5wcm90bxITcmFkaWFuLnRlbGVtZXRyeS52MSKjAgoNTG9jYXRpb25Qb2ludBILCgNzZXEYASABKAMSEAoIbGF0aXR1ZGUYAiABKAESEQoJbG9uZ2l0dWRlGAMgASgBEhYKDnJlY29yZGVkX2F0X21zGAQgASgDEhYKCXNwZWVkX2ttaBgFIAEoAkgAiAEBEhgKC2hlYWRpbmdfZGVnGAYgASgCSAGIAQESFwoKYWNjdXJhY3lfbRgHIAEoAkgCiAEBEhcKCmFsdGl0dWRlX20YCCABKAJIA4gBARIYCgtiYXR0ZXJ5X3BjdBgJIAEoBUgEiAEBQgwKCl9zcGVlZF9rbWhCDgoMX2hlYWRpbmdfZGVnQg0KC19hY2N1cmFjeV9tQg0KC19hbHRpdHVkZV9tQg4KDF9iYXR0ZXJ5X3BjdCJZCg5UZWxlbWV0cnlCYXRjaBIyCgZwb2ludHMYASADKAsyIi5yYWRpYW4udGVsZW1ldHJ5LnYxLkxvY2F0aW9uUG9pbnQSEwoLaXNfYmFja2ZpbGwYAiABKAgiIwoJSGVhcnRiZWF0EhYKDmNsaWVudF90aW1lX21zGAEgASgDIsEBCg1DbGllbnRNZXNzYWdlEjQKBWJhdGNoGAEgASgLMiMucmFkaWFuLnRlbGVtZXRyeS52MS5UZWxlbWV0cnlCYXRjaEgAEjMKCWhlYXJ0YmVhdBgCIAEoCzIeLnJhZGlhbi50ZWxlbWV0cnkudjEuSGVhcnRiZWF0SAASOgoKam9iX3N0YXR1cxgDIAEoCzIkLnJhZGlhbi50ZWxlbWV0cnkudjEuSm9iU3RhdHVzVXBkYXRlSABCCQoHcGF5bG9hZCIdCghCYXRjaEFjaxIRCglhY2tlZF9zZXEYASABKAMifQoOVHJhY2tpbmdDb25maWcSGgoSbW92aW5nX2ludGVydmFsX21zGAEgASgFEhkKEWRpc3RhbmNlX2ZpbHRlcl9tGAIgASgFEhYKDm1heF9hY2N1cmFjeV9tGAMgASgCEhwKFHN0YXRpb25hcnlfc3BlZWRfa21oGAQgASgCIu8BCg1TZXJ2ZXJNZXNzYWdlEiwKA2FjaxgBIAEoCzIdLnJhZGlhbi50ZWxlbWV0cnkudjEuQmF0Y2hBY2tIABI1CgZjb25maWcYAiABKAsyIy5yYWRpYW4udGVsZW1ldHJ5LnYxLlRyYWNraW5nQ29uZmlnSAASMgoJam9iX29mZmVyGAMgASgLMh0ucmFkaWFuLnRlbGVtZXRyeS52MS5Kb2JPZmZlckgAEjoKDWpvYl9jYW5jZWxsZWQYBCABKAsyIS5yYWRpYW4udGVsZW1ldHJ5LnYxLkpvYkNhbmNlbGxlZEgAQgkKB3BheWxvYWQiLwoIR2VvUG9pbnQSEAoIbGF0aXR1ZGUYASABKAESEQoJbG9uZ2l0dWRlGAIgASgBIrECCghKb2JPZmZlchIOCgZqb2JfaWQYASABKAkSLQoGcGlja3VwGAIgASgLMh0ucmFkaWFuLnRlbGVtZXRyeS52MS5HZW9Qb2ludBIWCg5waWNrdXBfYWRkcmVzcxgDIAEoCRIzCgdkcm9wb2ZmGAQgASgLMh0ucmFkaWFuLnRlbGVtZXRyeS52MS5HZW9Qb2ludEgAiAEBEhwKD2Ryb3BvZmZfYWRkcmVzcxgFIAEoCUgBiAEBEhAKCHByaW9yaXR5GAYgASgFEhMKC2V0YV9zZWNvbmRzGAcgASgFEg0KBW5vdGVzGAggASgJEhUKDWV4cGlyZXNfYXRfbXMYCSABKAMSDgoGbnVtYmVyGAogASgDQgoKCF9kcm9wb2ZmQhIKEF9kcm9wb2ZmX2FkZHJlc3MiLgoMSm9iQ2FuY2VsbGVkEg4KBmpvYl9pZBgBIAEoCRIOCgZyZWFzb24YAiABKAkiaQoPSm9iU3RhdHVzVXBkYXRlEg4KBmpvYl9pZBgBIAEoCRIuCgZzdGF0dXMYAiABKA4yHi5yYWRpYW4udGVsZW1ldHJ5LnYxLkpvYlN0YXR1cxIWCg5vY2N1cnJlZF9hdF9tcxgDIAEoAyJRCgtCb3VuZGluZ0JveBIPCgdtaW5fbG9uGAEgASgBEg8KB21pbl9sYXQYAiABKAESDwoHbWF4X2xvbhgDIAEoARIPCgdtYXhfbGF0GAQgASgBIkgKEkRhc2hib2FyZFN1YnNjcmliZRIyCgh2aWV3cG9ydBgBIAEoCzIgLnJhZGlhbi50ZWxlbWV0cnkudjEuQm91bmRpbmdCb3giYQoWRGFzaGJvYXJkQ2xpZW50TWVzc2FnZRI8CglzdWJzY3JpYmUYASABKAsyJy5yYWRpYW4udGVsZW1ldHJ5LnYxLkRhc2hib2FyZFN1YnNjcmliZUgAQgkKB3BheWxvYWQiuwEKDFZlaGljbGVEZWx0YRISCgp2ZWhpY2xlX2lkGAEgASgJEhAKCGxhdGl0dWRlGAIgASgBEhEKCWxvbmdpdHVkZRgDIAEoARITCgtoZWFkaW5nX2RlZxgEIAEoAhIRCglzcGVlZF9rbWgYBSABKAISMgoGc3RhdHVzGAYgASgOMiIucmFkaWFuLnRlbGVtZXRyeS52MS5WZWhpY2xlU3RhdHVzEhYKDnJlY29yZGVkX2F0X21zGAcgASgDIooBCgtGbGVldFVwZGF0ZRIxCgZkZWx0YXMYASADKAsyIS5yYWRpYW4udGVsZW1ldHJ5LnYxLlZlaGljbGVEZWx0YRIbChNyZW1vdmVkX3ZlaGljbGVfaWRzGAIgAygJEhYKDnNlcnZlcl90aW1lX21zGAMgASgDEhMKC2lzX3NuYXBzaG90GAQgASgIIh4KC0pvYnNDaGFuZ2VkEg8KB2pvYl9pZHMYASADKAkilwEKFkRhc2hib2FyZFNlcnZlck1lc3NhZ2USOAoMZmxlZXRfdXBkYXRlGAEgASgLMiAucmFkaWFuLnRlbGVtZXRyeS52MS5GbGVldFVwZGF0ZUgAEjgKDGpvYnNfY2hhbmdlZBgCIAEoCzIgLnJhZGlhbi50ZWxlbWV0cnkudjEuSm9ic0NoYW5nZWRIAEIJCgdwYXlsb2FkKuUBCglKb2JTdGF0dXMSGgoWSk9CX1NUQVRVU19VTlNQRUNJRklFRBAAEhYKEkpPQl9TVEFUVVNfUEVORElORxABEhcKE0pPQl9TVEFUVVNfQVNTSUdORUQQAhIeChpKT0JfU1RBVFVTX0VOX1JPVVRFX1BJQ0tVUBADEhYKEkpPQl9TVEFUVVNfT05fU0lURRAEEh8KG0pPQl9TVEFUVVNfRU5fUk9VVEVfRFJPUE9GRhAFEhgKFEpPQl9TVEFUVVNfQ09NUExFVEVEEAYSGAoUSk9CX1NUQVRVU19DQU5DRUxMRUQQByqcAQoNVmVoaWNsZVN0YXR1cxIeChpWRUhJQ0xFX1NUQVRVU19VTlNQRUNJRklFRBAAEhoKFlZFSElDTEVfU1RBVFVTX09GRkxJTkUQARIXChNWRUhJQ0xFX1NUQVRVU19JRExFEAISGwoXVkVISUNMRV9TVEFUVVNfRU5fUk9VVEUQAxIZChVWRUhJQ0xFX1NUQVRVU19PTl9KT0IQBEJPWk1naXRodWIuY29tL0NvbGxpbnNXb2VsaW5hbS9SYWRpYW4vYmFja2VuZC9nZW4vcmFkaWFuL3RlbGVtZXRyeS92MTt0ZWxlbWV0cnl2MWIGcHJvdG8z");
 
 /**
  * @generated from message radian.telemetry.v1.LocationPoint
@@ -231,6 +231,12 @@ export type ServerMessage = Message<"radian.telemetry.v1.ServerMessage"> & {
      */
     value: JobOffer;
     case: "jobOffer";
+  } | {
+    /**
+     * @generated from field: radian.telemetry.v1.JobCancelled job_cancelled = 4;
+     */
+    value: JobCancelled;
+    case: "jobCancelled";
   } | { case: undefined; value?: undefined };
 };
 
@@ -306,6 +312,20 @@ export type JobOffer = Message<"radian.telemetry.v1.JobOffer"> & {
    * @generated from field: string notes = 8;
    */
   notes: string;
+
+  /**
+   * The offer lapses (and goes to the next driver) at this time, Unix ms.
+   *
+   * @generated from field: int64 expires_at_ms = 9;
+   */
+  expiresAtMs: bigint;
+
+  /**
+   * Human-friendly job number shown as "#1042".
+   *
+   * @generated from field: int64 number = 10;
+   */
+  number: bigint;
 };
 
 /**
@@ -314,6 +334,30 @@ export type JobOffer = Message<"radian.telemetry.v1.JobOffer"> & {
  */
 export const JobOfferSchema: GenMessage<JobOffer> = /*@__PURE__*/
   messageDesc(file_radian_telemetry_v1_telemetry, 8);
+
+/**
+ * The dispatcher cancelled a job this vehicle was offered or working on.
+ *
+ * @generated from message radian.telemetry.v1.JobCancelled
+ */
+export type JobCancelled = Message<"radian.telemetry.v1.JobCancelled"> & {
+  /**
+   * @generated from field: string job_id = 1;
+   */
+  jobId: string;
+
+  /**
+   * @generated from field: string reason = 2;
+   */
+  reason: string;
+};
+
+/**
+ * Describes the message radian.telemetry.v1.JobCancelled.
+ * Use `create(JobCancelledSchema)` to create a new message.
+ */
+export const JobCancelledSchema: GenMessage<JobCancelled> = /*@__PURE__*/
+  messageDesc(file_radian_telemetry_v1_telemetry, 9);
 
 /**
  * @generated from message radian.telemetry.v1.JobStatusUpdate
@@ -340,7 +384,7 @@ export type JobStatusUpdate = Message<"radian.telemetry.v1.JobStatusUpdate"> & {
  * Use `create(JobStatusUpdateSchema)` to create a new message.
  */
 export const JobStatusUpdateSchema: GenMessage<JobStatusUpdate> = /*@__PURE__*/
-  messageDesc(file_radian_telemetry_v1_telemetry, 9);
+  messageDesc(file_radian_telemetry_v1_telemetry, 10);
 
 /**
  * @generated from message radian.telemetry.v1.BoundingBox
@@ -372,7 +416,7 @@ export type BoundingBox = Message<"radian.telemetry.v1.BoundingBox"> & {
  * Use `create(BoundingBoxSchema)` to create a new message.
  */
 export const BoundingBoxSchema: GenMessage<BoundingBox> = /*@__PURE__*/
-  messageDesc(file_radian_telemetry_v1_telemetry, 10);
+  messageDesc(file_radian_telemetry_v1_telemetry, 11);
 
 /**
  * Sent whenever the dashboard viewport changes; the server only streams
@@ -392,7 +436,7 @@ export type DashboardSubscribe = Message<"radian.telemetry.v1.DashboardSubscribe
  * Use `create(DashboardSubscribeSchema)` to create a new message.
  */
 export const DashboardSubscribeSchema: GenMessage<DashboardSubscribe> = /*@__PURE__*/
-  messageDesc(file_radian_telemetry_v1_telemetry, 11);
+  messageDesc(file_radian_telemetry_v1_telemetry, 12);
 
 /**
  * @generated from message radian.telemetry.v1.DashboardClientMessage
@@ -415,7 +459,7 @@ export type DashboardClientMessage = Message<"radian.telemetry.v1.DashboardClien
  * Use `create(DashboardClientMessageSchema)` to create a new message.
  */
 export const DashboardClientMessageSchema: GenMessage<DashboardClientMessage> = /*@__PURE__*/
-  messageDesc(file_radian_telemetry_v1_telemetry, 12);
+  messageDesc(file_radian_telemetry_v1_telemetry, 13);
 
 /**
  * @generated from message radian.telemetry.v1.VehicleDelta
@@ -462,7 +506,7 @@ export type VehicleDelta = Message<"radian.telemetry.v1.VehicleDelta"> & {
  * Use `create(VehicleDeltaSchema)` to create a new message.
  */
 export const VehicleDeltaSchema: GenMessage<VehicleDelta> = /*@__PURE__*/
-  messageDesc(file_radian_telemetry_v1_telemetry, 13);
+  messageDesc(file_radian_telemetry_v1_telemetry, 14);
 
 /**
  * Coalesced per tick (~1s): at most one delta per vehicle.
@@ -500,7 +544,26 @@ export type FleetUpdate = Message<"radian.telemetry.v1.FleetUpdate"> & {
  * Use `create(FleetUpdateSchema)` to create a new message.
  */
 export const FleetUpdateSchema: GenMessage<FleetUpdate> = /*@__PURE__*/
-  messageDesc(file_radian_telemetry_v1_telemetry, 14);
+  messageDesc(file_radian_telemetry_v1_telemetry, 15);
+
+/**
+ * Something about a job changed; dashboards refetch the job list.
+ *
+ * @generated from message radian.telemetry.v1.JobsChanged
+ */
+export type JobsChanged = Message<"radian.telemetry.v1.JobsChanged"> & {
+  /**
+   * @generated from field: repeated string job_ids = 1;
+   */
+  jobIds: string[];
+};
+
+/**
+ * Describes the message radian.telemetry.v1.JobsChanged.
+ * Use `create(JobsChangedSchema)` to create a new message.
+ */
+export const JobsChangedSchema: GenMessage<JobsChanged> = /*@__PURE__*/
+  messageDesc(file_radian_telemetry_v1_telemetry, 16);
 
 /**
  * @generated from message radian.telemetry.v1.DashboardServerMessage
@@ -515,6 +578,12 @@ export type DashboardServerMessage = Message<"radian.telemetry.v1.DashboardServe
      */
     value: FleetUpdate;
     case: "fleetUpdate";
+  } | {
+    /**
+     * @generated from field: radian.telemetry.v1.JobsChanged jobs_changed = 2;
+     */
+    value: JobsChanged;
+    case: "jobsChanged";
   } | { case: undefined; value?: undefined };
 };
 
@@ -523,7 +592,7 @@ export type DashboardServerMessage = Message<"radian.telemetry.v1.DashboardServe
  * Use `create(DashboardServerMessageSchema)` to create a new message.
  */
 export const DashboardServerMessageSchema: GenMessage<DashboardServerMessage> = /*@__PURE__*/
-  messageDesc(file_radian_telemetry_v1_telemetry, 15);
+  messageDesc(file_radian_telemetry_v1_telemetry, 17);
 
 /**
  * @generated from enum radian.telemetry.v1.JobStatus

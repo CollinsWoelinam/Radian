@@ -14,6 +14,7 @@ import (
 
 	pb "github.com/CollinsWoelinam/Radian/backend/gen/radian/telemetry/v1"
 	"github.com/CollinsWoelinam/Radian/backend/internal/geo"
+	"github.com/CollinsWoelinam/Radian/backend/internal/osrm"
 )
 
 // Greater Accra, roughly Kasoa to Tema.
@@ -31,12 +32,23 @@ type vehicle struct {
 	st             *stats
 	log            *slog.Logger
 
-	// Kinematics
+	// Kinematics: drive along path ([lon, lat] points) at around cruiseKmh.
 	lat, lon, heading, speedKmh float64
-	targetLat, targetLon        float64
+	path                        [][2]float64
+	pathIdx                     int
 	cruiseKmh                   float64
 	pausedUntil                 time.Time
 	battery                     float64
+
+	// Dispatch (see driver.go). Only the run loop touches offer/job.
+	api        string
+	routing    *osrm.Client
+	acceptRate float64
+	offers     chan *pb.JobOffer
+	cancels    chan string
+	offer      *pb.JobOffer
+	decideAt   time.Time
+	job        *simJob
 
 	// Client-side buffer, mirroring the app's SQLite ring buffer.
 	mu       sync.Mutex
@@ -50,20 +62,32 @@ type vehicle struct {
 	offlineUntil time.Time
 }
 
-func newVehicle(id, token, url string, interval time.Duration, dropout float64, st *stats, log *slog.Logger) *vehicle {
+type vehicleOpts struct {
+	url, api   string
+	routing    *osrm.Client
+	interval   time.Duration
+	dropout    float64
+	acceptRate float64
+}
+
+func newVehicle(ctx context.Context, id, token string, o vehicleOpts, st *stats, log *slog.Logger) *vehicle {
 	v := &vehicle{
-		id: id, token: token, url: url, interval: interval, dropout: dropout, st: st,
-		log:     log.With("vehicle_id", id),
-		battery: 40 + rand.Float64()*60,
+		id: id, token: token, url: o.url, interval: o.interval, dropout: o.dropout, st: st,
+		log:        log.With("vehicle_id", id),
+		battery:    40 + rand.Float64()*60,
+		api:        o.api,
+		routing:    o.routing,
+		acceptRate: o.acceptRate,
+		offers:     make(chan *pb.JobOffer, 4),
+		cancels:    make(chan string, 4),
 	}
 	v.lat, v.lon = randomLandPoint()
-	v.pickTarget()
+	v.roam(ctx, time.Now(), 0)
 	return v
 }
 
 // coastLat approximates the Gulf of Guinea shoreline across Greater Accra
-// (piecewise linear, west to east). Until routing lands, it keeps random
-// destinations, and the straight lines between them, on land.
+// (piecewise linear, west to east), so random destinations stay on land.
 func coastLat(lon float64) float64 {
 	pts := [][2]float64{{-0.32, 5.50}, {-0.21, 5.535}, {-0.14, 5.555}, {-0.06, 5.595}, {-0.02, 5.625}}
 	for i := 1; i < len(pts); i++ {
@@ -85,31 +109,20 @@ func randomLandPoint() (lat, lon float64) {
 	}
 }
 
-func (v *vehicle) pickTarget() {
-	v.targetLat, v.targetLon = randomLandPoint()
-	v.cruiseKmh = 20 + rand.Float64()*45
-}
-
 // step advances the vehicle by dt and returns a noisy GPS fix.
-func (v *vehicle) step(dt time.Duration, now time.Time) *pb.LocationPoint {
-	if now.Before(v.pausedUntil) {
+func (v *vehicle) step(ctx context.Context, dt time.Duration, now time.Time) *pb.LocationPoint {
+	switch {
+	case now.Before(v.pausedUntil):
 		v.speedKmh = 0
-	} else {
-		dist := geo.DistanceM(v.lat, v.lon, v.targetLat, v.targetLon)
-		if dist < 50 {
-			// Arrived: dwell like a delivery stop, then head somewhere new.
-			v.pausedUntil = now.Add(time.Duration(10+rand.IntN(50)) * time.Second)
-			v.pickTarget()
-			v.speedKmh = 0
-		} else {
-			// Ease toward cruise speed with some traffic noise.
-			v.speedKmh += (v.cruiseKmh-v.speedKmh)*0.3 + rand.NormFloat64()*3
-			v.speedKmh = math.Max(0, math.Min(v.speedKmh, 90))
-			want := geo.BearingDeg(v.lat, v.lon, v.targetLat, v.targetLon)
-			// Wobble the heading so tracks aren't perfectly straight lines.
-			v.heading = math.Mod(want+rand.NormFloat64()*8+360, 360)
-			move := math.Min(v.speedKmh/3.6*dt.Seconds(), dist)
-			v.lat, v.lon = geo.Destination(v.lat, v.lon, v.heading, move)
+	case v.pathIdx >= len(v.path):
+		v.speedKmh = 0
+		v.arrive(ctx, now) // also resumes after a dwell at the pickup
+	default:
+		// Ease toward cruise speed with some traffic noise.
+		v.speedKmh += (v.cruiseKmh-v.speedKmh)*0.3 + rand.NormFloat64()*3
+		v.speedKmh = math.Max(0, math.Min(v.speedKmh, 90))
+		if v.advance(v.speedKmh / 3.6 * dt.Seconds()) {
+			v.arrive(ctx, now)
 		}
 	}
 	v.battery = math.Max(5, v.battery-0.002)
@@ -163,7 +176,8 @@ func (v *vehicle) run(ctx context.Context) {
 			}
 			return
 		case now := <-ticker.C:
-			v.record(now)
+			v.handleDispatch(ctx, now)
+			v.record(ctx, now)
 
 			if conn == nil && now.Before(v.offlineUntil) {
 				continue
@@ -205,8 +219,8 @@ func (v *vehicle) run(ctx context.Context) {
 }
 
 // record takes a GPS fix and buffers it if it passes the stationary filter.
-func (v *vehicle) record(now time.Time) {
-	p := v.step(v.interval, now)
+func (v *vehicle) record(ctx context.Context, now time.Time) {
+	p := v.step(ctx, v.interval, now)
 	v.mu.Lock()
 	defer v.mu.Unlock()
 	if !shouldSend(p, v.lastSent) {
@@ -267,6 +281,7 @@ func (v *vehicle) readAcks(ctx context.Context, conn *websocket.Conn) {
 		if proto.Unmarshal(data, &msg) != nil {
 			continue
 		}
+		v.onServerMessage(&msg)
 		if ack := msg.GetAck(); ack != nil {
 			v.mu.Lock()
 			i := 0

@@ -24,3 +24,6 @@ build/
 .packages
 
 # Generated code is committed deliberately (gen/), nothing else here
+
+# OSRM road network data (make osrm-data)
+infra/osrm/

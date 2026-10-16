@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # Runs the screen tour and screenshots each screen into ./screenshots/<platform>/.
-# Usage: tool/tour.sh ios <simulator-udid> | tool/tour.sh android <emulator-serial>
+# Usage: tool/tour.sh ios|android <device> [test]   (test: tour_test (default) or dispatch_test)
 set -euo pipefail
 cd "$(dirname "$0")/.."
-PLATFORM=$1 DEVICE=$2
+PLATFORM=$1 DEVICE=$2 TEST=${3:-tour_test}
 OUT="screenshots/$PLATFORM"; mkdir -p "$OUT"
 ADB="${ANDROID_HOME:-$HOME/Library/Android/sdk}/platform-tools/adb"
 
@@ -16,9 +16,9 @@ shot() {
 LOG=$(mktemp)
 if [ "$PLATFORM" = ios ]; then
   # Reuse the E2E harness for route + permissions, but run the tour test.
-  sed 's#integration_test/shift_test.dart#integration_test/tour_test.dart#' tool/e2e_ios.sh > "$LOG.sh"
+  sed "s#integration_test/shift_test.dart#integration_test/$TEST.dart#" tool/e2e_ios.sh > "$LOG.sh"
 else
-  sed 's#integration_test/shift_test.dart#integration_test/tour_test.dart#' tool/e2e_android.sh > "$LOG.sh"
+  sed "s#integration_test/shift_test.dart#integration_test/$TEST.dart#" tool/e2e_android.sh > "$LOG.sh"
 fi
 chmod +x "$LOG.sh"; cp "$LOG.sh" tool/.tour_runner.sh
 trap 'rm -f tool/.tour_runner.sh "$LOG.sh"' EXIT

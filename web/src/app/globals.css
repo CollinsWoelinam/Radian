@@ -77,6 +77,48 @@ body {
   .status-chip:hover {
     background: var(--hover);
   }
+  .field {
+    width: 100%;
+    border: 1px solid var(--line);
+    border-radius: 9px;
+    background: var(--input);
+    padding: 8px 11px;
+    font-size: 13px;
+    outline: none;
+  }
+  .field:focus {
+    border-color: var(--accent);
+  }
+  .btn-primary,
+  .btn-secondary,
+  .btn-danger {
+    border-radius: 9px;
+    padding: 6px 12px;
+    font-size: 12px;
+    font-weight: 600;
+    transition: background 0.15s, opacity 0.15s;
+  }
+  .btn-primary {
+    background: var(--accent);
+    color: #fff;
+  }
+  .btn-primary:hover {
+    opacity: 0.9;
+  }
+  .btn-secondary {
+    border: 1px solid var(--line);
+  }
+  .btn-secondary:hover {
+    background: var(--hover);
+  }
+  .btn-danger {
+    background: #dc2626;
+    color: #fff;
+  }
+  .btn-primary:disabled,
+  .btn-danger:disabled {
+    opacity: 0.5;
+  }
 }
 
 /* MapLibre controls follow the theme */

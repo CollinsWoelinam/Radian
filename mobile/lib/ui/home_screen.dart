@@ -6,11 +6,13 @@ import 'package:geolocator/geolocator.dart';
 import 'package:permission_handler/permission_handler.dart' show Permission, PermissionActions, openAppSettings;
 
 import '../auth/session.dart';
+import '../jobs/driver_job.dart';
 import '../tracking/host.dart';
 import '../tracking/motion.dart';
 import '../tracking/permissions.dart';
 import '../tracking/readiness.dart';
 import '../tracking/status.dart';
+import 'job_card.dart';
 import 'theme.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -35,6 +37,14 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   // Largest backlog seen since it was last empty, for the upload progress bar.
   int _backlogPeak = 0;
 
+  // Dispatch: the current offer or job. Pushed offers bump jobSignal; a poll
+  // covers anything missed while offline.
+  DriverJob? _job;
+  bool _jobBusy = false;
+  int _lastJobSignal = 0;
+  Timer? _jobPoll;
+  Timer? _offerExpiry;
+
   @override
   void initState() {
     super.initState();
@@ -51,13 +61,21 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     WidgetsBinding.instance.removeObserver(this);
     _sub?.cancel();
     _clock?.cancel();
+    _jobPoll?.cancel();
+    _offerExpiry?.cancel();
     super.dispose();
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    // Back from Settings: the checklist may have changed.
-    if (state == AppLifecycleState.resumed && !_status.running) _recheck();
+    if (state != AppLifecycleState.resumed) return;
+    // Back from Settings: the checklist may have changed. Back from the map
+    // app: the job may have moved on.
+    if (_status.running) {
+      _refreshJob();
+    } else {
+      _recheck();
+    }
   }
 
   void _onStatus(TrackerStatus s) {
@@ -66,12 +84,66 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       return;
     }
     if (!mounted) return;
+    final wasRunning = _status.running;
     setState(() {
       _status = s;
       if (s.running) _interrupted = false;
       _backlogPeak = s.queued == 0 ? 0 : (s.queued > _backlogPeak ? s.queued : _backlogPeak);
     });
+    if (s.running && !wasRunning) _startJobPolling();
+    if (!s.running && wasRunning) _stopJobPolling();
+    if (s.jobSignal != _lastJobSignal) {
+      _lastJobSignal = s.jobSignal;
+      _refreshJob();
+    }
     if (!s.running) _recheck();
+  }
+
+  // --- Dispatch ---------------------------------------------------------------
+
+  void _startJobPolling() {
+    _refreshJob();
+    _jobPoll?.cancel();
+    _jobPoll = Timer.periodic(const Duration(seconds: 10), (_) => _refreshJob());
+  }
+
+  void _stopJobPolling() {
+    _jobPoll?.cancel();
+    _offerExpiry?.cancel();
+    if (mounted) setState(() => _job = null);
+  }
+
+  Future<void> _refreshJob() async {
+    try {
+      final job = await DriverJobApi.current();
+      if (!mounted) return;
+      final isNewOffer = job != null && job.isOffer && job.id != _job?.id;
+      setState(() => _job = job);
+      if (isNewOffer) HapticFeedback.heavyImpact();
+      // Drop the offer card the moment it lapses.
+      _offerExpiry?.cancel();
+      if (job?.offerExpiresAt != null) {
+        final left = job!.offerExpiresAt!.difference(DateTime.now()) + const Duration(milliseconds: 500);
+        _offerExpiry = Timer(left.isNegative ? Duration.zero : left, _refreshJob);
+      }
+    } catch (_) {
+      // Offline or server hiccup: keep showing what we have; the next poll retries.
+    }
+  }
+
+  Future<void> _jobAction(Future<void> Function() action, {String? done}) async {
+    setState(() => _jobBusy = true);
+    try {
+      await action();
+      if (done != null && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(done)));
+      }
+    } on JobActionException catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+    } finally {
+      await _refreshJob();
+      if (mounted) setState(() => _jobBusy = false);
+    }
   }
 
   /// On launch: pick up a running tracker, or resume a shift that was cut
@@ -80,10 +152,13 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     final running = await _host.isRunning();
     if (running) {
       if (mounted) setState(() => _status = _status.copyWith(running: true));
+      _startJobPolling();
       return;
     }
     await _recheck();
-    if (await ShiftStore.startedAt() == null) return;
+    // Re-check after the (slow) readiness probe: the driver may have tapped
+    // "Start shift" meanwhile, which also records a shift start.
+    if (await ShiftStore.startedAt() == null || await _host.isRunning() || _busy) return;
     if (_readiness?.canStart ?? false) {
       await _host.start();
       if (mounted) {
@@ -116,6 +191,13 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   }
 
   Future<void> _endShift() async {
+    final job = _job;
+    if (job != null && !job.isOffer) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Finish job #${job.number} before ending your shift, or ask dispatch to cancel it.')),
+      );
+      return;
+    }
     final s = _status;
     final confirmed = await showDialog<bool>(
       context: context,
@@ -304,6 +386,19 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             children: [
               if (onShift) ...[
                 _ShiftHero(status: s),
+                if (_job != null) ...[
+                  const SizedBox(height: 12),
+                  JobCard(
+                    job: _job!,
+                    busy: _jobBusy,
+                    onAccept: () => _jobAction(() => DriverJobApi.accept(_job!.id), done: 'Job accepted. Head to the pickup.'),
+                    onDecline: () => _jobAction(() => DriverJobApi.decline(_job!.id)),
+                    onAdvance: (st) => _jobAction(
+                      () => DriverJobApi.setStatus(_job!.id, st),
+                      done: st == 'COMPLETED' ? 'Job complete. Nice work.' : null,
+                    ),
+                  ),
+                ],
                 if (_backlogPeak >= 10 && s.queued > 0) ...[
                   const SizedBox(height: 12),
                   _UploadBanner(status: s, peak: _backlogPeak),

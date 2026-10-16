@@ -21,6 +21,7 @@ class TrackerStatus {
     this.authExpired = false,
     this.startedAt,
     this.distanceM = 0,
+    this.jobSignal = 0,
   });
 
   final bool running;
@@ -42,6 +43,9 @@ class TrackerStatus {
   final DateTime? startedAt;
   /// Distance covered by accepted fixes since the tracker started.
   final double distanceM;
+  /// Bumped whenever dispatch pushes a job offer or cancellation; the UI
+  /// refetches the current job when it changes.
+  final int jobSignal;
 
   TrackerStatus copyWith({
     bool? running,
@@ -58,6 +62,7 @@ class TrackerStatus {
     String? error,
     DateTime? startedAt,
     double? distanceM,
+    int? jobSignal,
   }) =>
       TrackerStatus(
         running: running ?? this.running,
@@ -75,6 +80,7 @@ class TrackerStatus {
         authExpired: authExpired,
         startedAt: startedAt ?? this.startedAt,
         distanceM: distanceM ?? this.distanceM,
+        jobSignal: jobSignal ?? this.jobSignal,
       );
 
   Map<String, dynamic> toMap() => {
@@ -93,6 +99,7 @@ class TrackerStatus {
         'authExpired': authExpired,
         'startedAt': startedAt?.millisecondsSinceEpoch,
         'distanceM': distanceM,
+        'jobSignal': jobSignal,
       };
 
   factory TrackerStatus.fromMap(Map<String, dynamic> m) => TrackerStatus(
@@ -111,5 +118,6 @@ class TrackerStatus {
         authExpired: m['authExpired'] as bool? ?? false,
         startedAt: m['startedAt'] == null ? null : DateTime.fromMillisecondsSinceEpoch(m['startedAt'] as int),
         distanceM: (m['distanceM'] as num?)?.toDouble() ?? 0,
+        jobSignal: m['jobSignal'] as int? ?? 0,
       );
 }
