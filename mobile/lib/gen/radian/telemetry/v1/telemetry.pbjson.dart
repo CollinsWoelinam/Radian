@@ -56,6 +56,23 @@ final $typed_data.Uint8List vehicleStatusDescriptor = $convert.base64Decode(
     'NMRV9TVEFUVVNfT0ZGTElORRABEhcKE1ZFSElDTEVfU1RBVFVTX0lETEUQAhIbChdWRUhJQ0xF'
     'X1NUQVRVU19FTl9ST1VURRADEhkKFVZFSElDTEVfU1RBVFVTX09OX0pPQhAE');
 
+@$core.Deprecated('Use geofenceKindDescriptor instead')
+const GeofenceKind$json = {
+  '1': 'GeofenceKind',
+  '2': [
+    {'1': 'GEOFENCE_KIND_UNSPECIFIED', '2': 0},
+    {'1': 'GEOFENCE_KIND_DEPOT', '2': 1},
+    {'1': 'GEOFENCE_KIND_SERVICE_AREA', '2': 2},
+    {'1': 'GEOFENCE_KIND_RESTRICTED', '2': 3},
+  ],
+};
+
+/// Descriptor for `GeofenceKind`. Decode as a `google.protobuf.EnumDescriptorProto`.
+final $typed_data.Uint8List geofenceKindDescriptor = $convert.base64Decode(
+    'CgxHZW9mZW5jZUtpbmQSHQoZR0VPRkVOQ0VfS0lORF9VTlNQRUNJRklFRBAAEhcKE0dFT0ZFTk'
+    'NFX0tJTkRfREVQT1QQARIeChpHRU9GRU5DRV9LSU5EX1NFUlZJQ0VfQVJFQRACEhwKGEdFT0ZF'
+    'TkNFX0tJTkRfUkVTVFJJQ1RFRBAD');
+
 @$core.Deprecated('Use locationPointDescriptor instead')
 const LocationPoint$json = {
   '1': 'LocationPoint',
@@ -542,6 +559,55 @@ const JobsChanged$json = {
 final $typed_data.Uint8List jobsChangedDescriptor = $convert
     .base64Decode('CgtKb2JzQ2hhbmdlZBIXCgdqb2JfaWRzGAEgAygJUgZqb2JJZHM=');
 
+@$core.Deprecated('Use geofenceEventDescriptor instead')
+const GeofenceEvent$json = {
+  '1': 'GeofenceEvent',
+  '2': [
+    {'1': 'id', '3': 1, '4': 1, '5': 3, '10': 'id'},
+    {'1': 'geofence_id', '3': 2, '4': 1, '5': 9, '10': 'geofenceId'},
+    {'1': 'geofence_name', '3': 3, '4': 1, '5': 9, '10': 'geofenceName'},
+    {
+      '1': 'kind',
+      '3': 4,
+      '4': 1,
+      '5': 14,
+      '6': '.radian.telemetry.v1.GeofenceKind',
+      '10': 'kind'
+    },
+    {'1': 'vehicle_id', '3': 5, '4': 1, '5': 9, '10': 'vehicleId'},
+    {'1': 'license_plate', '3': 6, '4': 1, '5': 9, '10': 'licensePlate'},
+    {'1': 'entered', '3': 7, '4': 1, '5': 8, '10': 'entered'},
+    {'1': 'occurred_at_ms', '3': 8, '4': 1, '5': 3, '10': 'occurredAtMs'},
+    {
+      '1': 'position',
+      '3': 9,
+      '4': 1,
+      '5': 11,
+      '6': '.radian.telemetry.v1.GeoPoint',
+      '10': 'position'
+    },
+  ],
+};
+
+/// Descriptor for `GeofenceEvent`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List geofenceEventDescriptor = $convert.base64Decode(
+    'Cg1HZW9mZW5jZUV2ZW50Eg4KAmlkGAEgASgDUgJpZBIfCgtnZW9mZW5jZV9pZBgCIAEoCVIKZ2'
+    'VvZmVuY2VJZBIjCg1nZW9mZW5jZV9uYW1lGAMgASgJUgxnZW9mZW5jZU5hbWUSNQoEa2luZBgE'
+    'IAEoDjIhLnJhZGlhbi50ZWxlbWV0cnkudjEuR2VvZmVuY2VLaW5kUgRraW5kEh0KCnZlaGljbG'
+    'VfaWQYBSABKAlSCXZlaGljbGVJZBIjCg1saWNlbnNlX3BsYXRlGAYgASgJUgxsaWNlbnNlUGxh'
+    'dGUSGAoHZW50ZXJlZBgHIAEoCFIHZW50ZXJlZBIkCg5vY2N1cnJlZF9hdF9tcxgIIAEoA1IMb2'
+    'NjdXJyZWRBdE1zEjkKCHBvc2l0aW9uGAkgASgLMh0ucmFkaWFuLnRlbGVtZXRyeS52MS5HZW9Q'
+    'b2ludFIIcG9zaXRpb24=');
+
+@$core.Deprecated('Use geofencesChangedDescriptor instead')
+const GeofencesChanged$json = {
+  '1': 'GeofencesChanged',
+};
+
+/// Descriptor for `GeofencesChanged`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List geofencesChangedDescriptor =
+    $convert.base64Decode('ChBHZW9mZW5jZXNDaGFuZ2Vk');
+
 @$core.Deprecated('Use dashboardServerMessageDescriptor instead')
 const DashboardServerMessage$json = {
   '1': 'DashboardServerMessage',
@@ -564,6 +630,24 @@ const DashboardServerMessage$json = {
       '9': 0,
       '10': 'jobsChanged'
     },
+    {
+      '1': 'geofence_event',
+      '3': 3,
+      '4': 1,
+      '5': 11,
+      '6': '.radian.telemetry.v1.GeofenceEvent',
+      '9': 0,
+      '10': 'geofenceEvent'
+    },
+    {
+      '1': 'geofences_changed',
+      '3': 4,
+      '4': 1,
+      '5': 11,
+      '6': '.radian.telemetry.v1.GeofencesChanged',
+      '9': 0,
+      '10': 'geofencesChanged'
+    },
   ],
   '8': [
     {'1': 'payload'},
@@ -574,5 +658,8 @@ const DashboardServerMessage$json = {
 final $typed_data.Uint8List dashboardServerMessageDescriptor = $convert.base64Decode(
     'ChZEYXNoYm9hcmRTZXJ2ZXJNZXNzYWdlEkUKDGZsZWV0X3VwZGF0ZRgBIAEoCzIgLnJhZGlhbi'
     '50ZWxlbWV0cnkudjEuRmxlZXRVcGRhdGVIAFILZmxlZXRVcGRhdGUSRQoMam9ic19jaGFuZ2Vk'
-    'GAIgASgLMiAucmFkaWFuLnRlbGVtZXRyeS52MS5Kb2JzQ2hhbmdlZEgAUgtqb2JzQ2hhbmdlZE'
-    'IJCgdwYXlsb2Fk');
+    'GAIgASgLMiAucmFkaWFuLnRlbGVtZXRyeS52MS5Kb2JzQ2hhbmdlZEgAUgtqb2JzQ2hhbmdlZB'
+    'JLCg5nZW9mZW5jZV9ldmVudBgDIAEoCzIiLnJhZGlhbi50ZWxlbWV0cnkudjEuR2VvZmVuY2VF'
+    'dmVudEgAUg1nZW9mZW5jZUV2ZW50ElQKEWdlb2ZlbmNlc19jaGFuZ2VkGAQgASgLMiUucmFkaW'
+    'FuLnRlbGVtZXRyeS52MS5HZW9mZW5jZXNDaGFuZ2VkSABSEGdlb2ZlbmNlc0NoYW5nZWRCCQoH'
+    'cGF5bG9hZA==');

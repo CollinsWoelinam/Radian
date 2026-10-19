@@ -171,9 +171,39 @@ message JobsChanged {
   repeated string job_ids = 1;
 }
 
+// ---------------------------------------------------------------------------
+// Geofences
+// ---------------------------------------------------------------------------
+
+enum GeofenceKind {
+  GEOFENCE_KIND_UNSPECIFIED = 0;
+  GEOFENCE_KIND_DEPOT = 1;
+  GEOFENCE_KIND_SERVICE_AREA = 2;
+  GEOFENCE_KIND_RESTRICTED = 3;
+}
+
+// A vehicle crossed a zone boundary (confirmed by consecutive fixes).
+message GeofenceEvent {
+  int64 id = 1;
+  string geofence_id = 2;
+  string geofence_name = 3;
+  GeofenceKind kind = 4;
+  string vehicle_id = 5;
+  string license_plate = 6;
+  // True on entering the zone, false on leaving it.
+  bool entered = 7;
+  int64 occurred_at_ms = 8;
+  GeoPoint position = 9;
+}
+
+// Zones were created or deleted; dashboards (and the geofencer) reload them.
+message GeofencesChanged {}
+
 message DashboardServerMessage {
   oneof payload {
     FleetUpdate fleet_update = 1;
     JobsChanged jobs_changed = 2;
+    GeofenceEvent geofence_event = 3;
+    GeofencesChanged geofences_changed = 4;
   }
 }

@@ -79,5 +79,30 @@ class VehicleStatus extends $pb.ProtobufEnum {
   const VehicleStatus._(super.value, super.name);
 }
 
+class GeofenceKind extends $pb.ProtobufEnum {
+  static const GeofenceKind GEOFENCE_KIND_UNSPECIFIED =
+      GeofenceKind._(0, _omitEnumNames ? '' : 'GEOFENCE_KIND_UNSPECIFIED');
+  static const GeofenceKind GEOFENCE_KIND_DEPOT =
+      GeofenceKind._(1, _omitEnumNames ? '' : 'GEOFENCE_KIND_DEPOT');
+  static const GeofenceKind GEOFENCE_KIND_SERVICE_AREA =
+      GeofenceKind._(2, _omitEnumNames ? '' : 'GEOFENCE_KIND_SERVICE_AREA');
+  static const GeofenceKind GEOFENCE_KIND_RESTRICTED =
+      GeofenceKind._(3, _omitEnumNames ? '' : 'GEOFENCE_KIND_RESTRICTED');
+
+  static const $core.List<GeofenceKind> values = <GeofenceKind>[
+    GEOFENCE_KIND_UNSPECIFIED,
+    GEOFENCE_KIND_DEPOT,
+    GEOFENCE_KIND_SERVICE_AREA,
+    GEOFENCE_KIND_RESTRICTED,
+  ];
+
+  static final $core.List<GeofenceKind?> _byValue =
+      $pb.ProtobufEnum.$_initByValueList(values, 3);
+  static GeofenceKind? valueOf($core.int value) =>
+      value < 0 || value >= _byValue.length ? null : _byValue[value];
+
+  const GeofenceKind._(super.value, super.name);
+}
+
 const $core.bool _omitEnumNames =
     $core.bool.fromEnvironment('protobuf.omit_enum_names');

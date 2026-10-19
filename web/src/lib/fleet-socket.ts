@@ -3,11 +3,19 @@ import {
   DashboardClientMessageSchema,
   DashboardServerMessageSchema,
   type FleetUpdate,
+  type GeofenceEvent,
 } from "@/gen/radian/telemetry/v1/telemetry_pb";
 
 export type ConnectionState = "connecting" | "live" | "reconnecting";
 
 export type Viewport = { minLon: number; minLat: number; maxLon: number; maxLat: number };
+
+/** Pushes other than fleet positions. */
+export type SocketHandlers = {
+  onJobsChanged?: (jobIds: string[]) => void;
+  onGeofenceEvent?: (e: GeofenceEvent) => void;
+  onGeofencesChanged?: () => void;
+};
 
 /**
  * WebSocket client for the broadcast service. Reconnects with backoff and
@@ -24,7 +32,7 @@ export class FleetSocket {
     private url: string,
     private onUpdate: (u: FleetUpdate) => void,
     private onState: (s: ConnectionState) => void,
-    private onJobsChanged: (jobIds: string[]) => void = () => {},
+    private handlers: SocketHandlers = {},
   ) {}
 
   connect() {
@@ -41,8 +49,11 @@ export class FleetSocket {
     };
     ws.onmessage = (ev) => {
       const msg = fromBinary(DashboardServerMessageSchema, new Uint8Array(ev.data as ArrayBuffer));
-      if (msg.payload.case === "fleetUpdate") this.onUpdate(msg.payload.value);
-      else if (msg.payload.case === "jobsChanged") this.onJobsChanged(msg.payload.value.jobIds);
+      const p = msg.payload;
+      if (p.case === "fleetUpdate") this.onUpdate(p.value);
+      else if (p.case === "jobsChanged") this.handlers.onJobsChanged?.(p.value.jobIds);
+      else if (p.case === "geofenceEvent") this.handlers.onGeofenceEvent?.(p.value);
+      else if (p.case === "geofencesChanged") this.handlers.onGeofencesChanged?.();
     };
     ws.onclose = () => {
       if (this.closed) return;

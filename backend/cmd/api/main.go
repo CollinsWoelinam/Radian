@@ -1,5 +1,5 @@
 // Command api serves Radian's REST endpoints: driver and dispatcher sign-in,
-// the jobs API for the dashboard, the driver's job actions, and the dispatch
+// the jobs and geofences APIs for the dashboard, the driver's job actions, and the dispatch
 // engine that offers each job to the nearest available vehicle by drive time.
 package main
 
@@ -31,6 +31,7 @@ type app struct {
 	tokenTTL       time.Duration
 	limiter        *loginLimiter
 	dispatch       *Dispatcher
+	rdb            *redis.Client
 	allowedOrigins []string
 }
 
@@ -67,6 +68,7 @@ func main() {
 		tokens:   tokens,
 		tokenTTL: config.Duration("DEVICE_TOKEN_TTL", 7*24*time.Hour),
 		limiter:  newLoginLimiter(10, time.Minute),
+		rdb:      rdb,
 		dispatch: &Dispatcher{
 			log:          log,
 			pool:         pool,
@@ -93,6 +95,10 @@ func main() {
 	mux.Handle("GET /v1/jobs/{id}/candidates", a.dispatcherOnly(a.handleJobCandidates))
 	mux.Handle("POST /v1/jobs/{id}/offer", a.dispatcherOnly(a.handleOfferJob))
 	mux.Handle("POST /v1/jobs/{id}/cancel", a.dispatcherOnly(a.handleCancelJob))
+	mux.Handle("GET /v1/geofences", a.dispatcherOnly(a.handleListGeofences))
+	mux.Handle("POST /v1/geofences", a.dispatcherOnly(a.handleCreateGeofence))
+	mux.Handle("DELETE /v1/geofences/{id}", a.dispatcherOnly(a.handleDeleteGeofence))
+	mux.Handle("GET /v1/geofence-events", a.dispatcherOnly(a.handleGeofenceEvents))
 	// Driver app (device token)
 	mux.Handle("GET /v1/driver/job", a.deviceOnly(a.handleDriverCurrentJob))
 	mux.Handle("POST /v1/driver/jobs/{id}/accept", a.deviceOnly(a.handleDriverAccept))
@@ -164,7 +170,7 @@ func (a *app) cors(next http.Handler) http.Handler {
 			h.Set("Access-Control-Allow-Origin", origin)
 			h.Set("Vary", "Origin")
 			h.Set("Access-Control-Allow-Headers", "Authorization, Content-Type")
-			h.Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+			h.Set("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS")
 			h.Set("Access-Control-Max-Age", "600")
 		}
 		if r.Method == http.MethodOptions {

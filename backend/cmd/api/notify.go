@@ -28,6 +28,13 @@ func (n *Notifier) JobsChanged(ctx context.Context, jobIDs ...string) {
 	n.publish(ctx, stream.JobsChannel, &pb.JobsChanged{JobIds: jobIDs})
 }
 
+// GeofencesChanged tells dashboards and the geofencer to reload zones.
+func (n *Notifier) GeofencesChanged(ctx context.Context) {
+	n.publish(ctx, stream.GeofenceChannel, &pb.DashboardServerMessage{
+		Payload: &pb.DashboardServerMessage_GeofencesChanged{GeofencesChanged: &pb.GeofencesChanged{}},
+	})
+}
+
 func (n *Notifier) publish(ctx context.Context, channel string, msg proto.Message) {
 	data, err := proto.Marshal(msg)
 	if err == nil {

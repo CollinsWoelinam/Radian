@@ -4,7 +4,7 @@ import { useEffect, useRef } from "react";
 import { Map, NavigationControl, useControl, type MapRef } from "react-map-gl/maplibre";
 import { MapboxOverlay } from "@deck.gl/mapbox";
 import { setWorkerUrl } from "maplibre-gl";
-import { IconLayer, PathLayer, ScatterplotLayer } from "@deck.gl/layers";
+import { IconLayer, PathLayer, PolygonLayer, ScatterplotLayer, TextLayer } from "@deck.gl/layers";
 import type { PickingInfo } from "@deck.gl/core";
 import "maplibre-gl/dist/maplibre-gl.css";
 
@@ -13,6 +13,7 @@ import { VehicleStatus } from "@/gen/radian/telemetry/v1/telemetry_pb";
 import type { Viewport } from "@/lib/fleet-socket";
 import { INITIAL_VIEW, MAP_STYLES, statusInfo, type StatusKey, type Theme } from "@/lib/config";
 import { STATUS_META, type Job, type JobDetail, type LatLon, type RouteLeg } from "@/lib/jobs";
+import { zoneKind, type Severity, type Zone } from "@/lib/geofences";
 
 /** Job-related things to draw over the fleet; read every frame. */
 export type JobOverlay = {
@@ -22,7 +23,37 @@ export type JobOverlay = {
   picking: boolean;
 };
 
+/** Zones and zone drawing; read every frame. */
+export type ZoneOverlay = {
+  zones: Zone[];
+  highlightId: string | null;
+  /** Outline being drawn, [lon, lat]; null when not drawing. */
+  draft: [number, number][] | null;
+  /** The outline is complete; clicks no longer add corners. */
+  draftClosed: boolean;
+  /** Recent alerts to pulse on the map; `t` is performance.now() when received. */
+  alerts: { at: LatLon; t: number; severity: Severity }[];
+};
+
 type RGB = [number, number, number];
+type ZonePart = { zone: Zone; rings: [number, number][][] };
+type ZoneLabel = { zone: Zone; at: [number, number] };
+type ZoneData = { zones: Zone[]; parts: ZonePart[]; labels: ZoneLabel[] };
+const PULSE_MS = 2400;
+const SEVERITY_RGB: Record<Severity, RGB> = { critical: [239, 68, 68], warning: [245, 158, 11], info: [59, 130, 246] };
+
+/** Deck data for the zones; rebuilt only when the zone list changes. */
+function zoneData(zones: Zone[], cache: ZoneData | null): ZoneData {
+  if (cache?.zones === zones) return cache;
+  const parts = zones.flatMap((zone) => zone.area.map((rings) => ({ zone, rings })));
+  const labels = zones.map((zone) => {
+    const outer = zone.area[0]?.[0] ?? [];
+    const lons = outer.map((p) => p[0]);
+    const lats = outer.map((p) => p[1]);
+    return { zone, at: [(Math.min(...lons) + Math.max(...lons)) / 2, (Math.min(...lats) + Math.max(...lats)) / 2] as [number, number] };
+  });
+  return { zones, parts, labels };
+}
 const TONE_RGB: Record<string, RGB> = {
   wait: [245, 158, 11],
   offer: [139, 92, 246],
@@ -54,6 +85,11 @@ type Props = {
   jobOverlay: React.RefObject<JobOverlay>;
   onSelectJob: (id: string | null) => void;
   onMapClick: (at: LatLon) => void;
+  zoneOverlay: React.RefObject<ZoneOverlay>;
+  /** Drawing a zone: clicks add corners; clicking the first corner closes it. */
+  drawing: boolean;
+  onDrawPoint: (p: [number, number]) => void;
+  onCloseDraft: () => void;
 };
 
 // MapLibre resolves its worker relative to its own bundle, which breaks once
@@ -83,6 +119,7 @@ export default function FleetMap(props: Props) {
     let raf = 0;
     let frames = 0;
     let fpsStart = performance.now();
+    let zoneCache: ZoneData | null = null;
 
     const loop = (now: number) => {
       raf = requestAnimationFrame(loop);
@@ -90,7 +127,13 @@ export default function FleetMap(props: Props) {
       if (!overlay) return;
       const { hidden, selectedId, follow, onSelect, onFrame, theme: mapTheme, jobOverlay, onSelectJob, onMapClick } =
         live.current;
+      const { zoneOverlay, drawing, onDrawPoint, onCloseDraft } = live.current;
       const jo = jobOverlay.current;
+      const zo = zoneOverlay.current;
+      zoneCache = zoneData(zo.zones, zoneCache);
+      const { parts, labels } = zoneCache;
+      const draft = zo.draft ?? [];
+      const pulses = zo.alerts.filter((a) => now - a.t < PULSE_MS);
       const ring: [number, number, number] = mapTheme === "dark" ? [255, 255, 255] : [15, 23, 42];
 
       store.advance(now);
@@ -139,6 +182,63 @@ export default function FleetMap(props: Props) {
 
       overlay.setProps({
         layers: [
+          new PolygonLayer<ZonePart>({
+            id: "zones",
+            data: parts,
+            getPolygon: (z) => z.rings,
+            filled: true,
+            stroked: true,
+            getFillColor: (z) => [...zoneKind(z.zone.kind).rgb, z.zone.id === zo.highlightId ? 70 : z.zone.kind === "SERVICE_AREA" ? 14 : 38],
+            getLineColor: (z) => [...zoneKind(z.zone.kind).rgb, z.zone.id === zo.highlightId ? 255 : 190],
+            getLineWidth: (z) => (z.zone.id === zo.highlightId ? 3 : z.zone.kind === "SERVICE_AREA" ? 1.5 : 2),
+            lineWidthUnits: "pixels",
+            updateTriggers: { getFillColor: zo.highlightId, getLineColor: zo.highlightId, getLineWidth: zo.highlightId },
+          }),
+          new TextLayer<ZoneLabel>({
+            id: "zone-labels",
+            data: labels,
+            getPosition: (l) => l.at,
+            getText: (l) => l.zone.name,
+            getSize: 11,
+            getColor: (l) => [...zoneKind(l.zone.kind).rgb, 255],
+            fontFamily: 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif',
+            fontWeight: 600,
+            background: true,
+            getBackgroundColor: mapTheme === "dark" ? [11, 15, 20, 200] : [255, 255, 255, 220],
+            backgroundPadding: [5, 2],
+            updateTriggers: { getBackgroundColor: mapTheme },
+          }),
+          new PolygonLayer<[number, number][]>({
+            id: "zone-draft-fill",
+            data: draft.length >= 3 ? [draft] : [],
+            getPolygon: (d) => d,
+            filled: true,
+            stroked: false,
+            getFillColor: [59, 130, 246, zo.draftClosed ? 60 : 30],
+            updateTriggers: { getFillColor: zo.draftClosed },
+          }),
+          new PathLayer<[number, number][]>({
+            id: "zone-draft-edge",
+            data: draft.length >= 2 ? [zo.draftClosed ? [...draft, draft[0]] : draft] : [],
+            getPath: (d) => d,
+            getColor: [59, 130, 246, 255],
+            getWidth: 2,
+            widthUnits: "pixels",
+          }),
+          new ScatterplotLayer<[number, number]>({
+            id: "zone-draft-corners",
+            data: draft,
+            getPosition: (d) => d,
+            radiusUnits: "pixels",
+            // The first corner is bigger: clicking it closes the outline.
+            getRadius: (d) => (d === draft[0] && draft.length >= 3 && !zo.draftClosed ? 8 : 5),
+            stroked: true,
+            getFillColor: [255, 255, 255, 255],
+            getLineColor: [59, 130, 246, 255],
+            lineWidthUnits: "pixels",
+            getLineWidth: 2,
+            updateTriggers: { getRadius: [draft.length, zo.draftClosed] },
+          }),
           // Legs come current-first from the API; draw upcoming ones underneath,
           // faded, so the leg the driver is on now is never hidden by a later one.
           new PathLayer<RouteLeg>({
@@ -221,8 +321,31 @@ export default function FleetMap(props: Props) {
             getLineWidth: (p) => (p.kind === "dropoff" ? 4 : 2),
             updateTriggers: { getRadius: sel?.id, getFillColor: pins.length, getLineColor: pins.length },
           }),
+          // Expanding rings where an alert just fired.
+          new ScatterplotLayer<ZoneOverlay["alerts"][number]>({
+            id: "alert-pulses",
+            data: pulses,
+            getPosition: (a) => [a.at.lon, a.at.lat],
+            radiusUnits: "pixels",
+            getRadius: (a) => 10 + (((now - a.t) % 1200) / 1200) * 40,
+            stroked: true,
+            filled: false,
+            getLineColor: (a) => [...SEVERITY_RGB[a.severity], 255 * (1 - ((now - a.t) % 1200) / 1200)],
+            lineWidthUnits: "pixels",
+            getLineWidth: 3,
+            updateTriggers: { getRadius: now, getLineColor: now },
+          }),
         ],
         onClick: (info: PickingInfo) => {
+          if (drawing) {
+            if (zo.draftClosed || !info.coordinate) return;
+            // Clicking near the first corner closes the outline.
+            const first = draft[0];
+            const p = first && mapRef.current?.project(first);
+            if (p && draft.length >= 3 && Math.hypot(p.x - info.x, p.y - info.y) < 12) onCloseDraft();
+            else onDrawPoint([info.coordinate[0], info.coordinate[1]]);
+            return;
+          }
           // While placing a job, every click sets a location, even on top of
           // a moving vehicle or another job's pin.
           if (jo.picking && info.coordinate) {
@@ -235,7 +358,7 @@ export default function FleetMap(props: Props) {
             onSelect(null);
           }
         },
-        getCursor: ({ isHovering }) => (jo.picking ? "crosshair" : isHovering ? "pointer" : "grab"),
+        getCursor: ({ isHovering }) => (jo.picking || drawing ? "crosshair" : isHovering ? "pointer" : "grab"),
       });
 
       frames++;
@@ -264,6 +387,7 @@ export default function FleetMap(props: Props) {
       onLoad={emitViewport}
       onMoveEnd={emitViewport}
       onDragStart={onUserPan}
+      doubleClickZoom={!props.drawing}
     >
       <NavigationControl position="bottom-right" visualizePitch />
       <DeckOverlay onReady={(o) => (overlayRef.current = o)} />

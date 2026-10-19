@@ -94,6 +94,7 @@ func main() {
 
 	go a.tailStream(ctx, cursor)
 	go a.forwardJobs(ctx)
+	go a.forwardGeofences(ctx)
 	go a.every(ctx, config.Duration("BROADCAST_TICK", time.Second), a.hub.Tick)
 	go a.every(ctx, 10*time.Second, func(time.Time) {
 		if err := a.refreshAssigned(ctx); err != nil && ctx.Err() == nil {
@@ -234,6 +235,23 @@ func (a *app) forwardJobs(ctx context.Context) {
 			a.log.Warn("refresh vehicle statuses", "err", err)
 		}
 		a.hub.Notify(&pb.DashboardServerMessage{Payload: &pb.DashboardServerMessage_JobsChanged{JobsChanged: &jc}})
+	}
+}
+
+// forwardGeofences relays zone crossings and zone changes to dashboards. The
+// geofencer and api publish ready-made dashboard messages.
+func (a *app) forwardGeofences(ctx context.Context) {
+	ps := a.rdb.Subscribe(ctx, stream.GeofenceChannel)
+	go func() {
+		<-ctx.Done()
+		ps.Close()
+	}()
+	for m := range ps.Channel() {
+		var msg pb.DashboardServerMessage
+		if proto.Unmarshal([]byte(m.Payload), &msg) != nil {
+			continue
+		}
+		a.hub.Notify(&msg)
 	}
 }
 

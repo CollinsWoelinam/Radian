@@ -41,12 +41,12 @@ proto-lint:
 # Loads .env so services pick up DATABASE_URL, REDIS_URL, JWT_SECRET.
 GO_ENV := set -a && . ../.env && set +a &&
 
-.PHONY: api seed ingest persister broadcast simulator test web mobile-test mobile-e2e-ios
+.PHONY: api seed ingest persister broadcast geofencer simulator test web mobile-test mobile-e2e-ios
 
 api:           ## Run the REST API (driver login) on :8080
 	cd backend && $(GO_ENV) go run ./cmd/api
 
-seed:          ## Create demo drivers + vehicles (password: radian-demo)
+seed:          ## Create demo drivers, vehicles and zones (password: radian-demo)
 	cd backend && $(GO_ENV) go run ./cmd/seed
 
 ingest:        ## Run the telemetry ingestion WebSocket service (:8081)
@@ -57,6 +57,9 @@ persister:     ## Run the Redis Streams -> Postgres writer
 
 broadcast:     ## Run the dashboard fan-out WebSocket service (:8082)
 	cd backend && $(GO_ENV) go run ./cmd/broadcast
+
+geofencer:     ## Detect vehicles entering/leaving zones
+	cd backend && $(GO_ENV) go run ./cmd/geofencer
 
 simulator:     ## Drive a fake fleet: make simulator ARGS="-n 500"
 	cd backend && $(GO_ENV) go run ./cmd/simulator $(ARGS)

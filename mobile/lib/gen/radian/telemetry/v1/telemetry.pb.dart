@@ -1596,16 +1596,229 @@ class JobsChanged extends $pb.GeneratedMessage {
   $pb.PbList<$core.String> get jobIds => $_getList(0);
 }
 
-enum DashboardServerMessage_Payload { fleetUpdate, jobsChanged, notSet }
+/// A vehicle crossed a zone boundary (confirmed by consecutive fixes).
+class GeofenceEvent extends $pb.GeneratedMessage {
+  factory GeofenceEvent({
+    $fixnum.Int64? id,
+    $core.String? geofenceId,
+    $core.String? geofenceName,
+    GeofenceKind? kind,
+    $core.String? vehicleId,
+    $core.String? licensePlate,
+    $core.bool? entered,
+    $fixnum.Int64? occurredAtMs,
+    GeoPoint? position,
+  }) {
+    final result = GeofenceEvent._();
+    if (id != null) result.id = id;
+    if (geofenceId != null) result.geofenceId = geofenceId;
+    if (geofenceName != null) result.geofenceName = geofenceName;
+    if (kind != null) result.kind = kind;
+    if (vehicleId != null) result.vehicleId = vehicleId;
+    if (licensePlate != null) result.licensePlate = licensePlate;
+    if (entered != null) result.entered = entered;
+    if (occurredAtMs != null) result.occurredAtMs = occurredAtMs;
+    if (position != null) result.position = position;
+    return result;
+  }
+
+  GeofenceEvent._();
+
+  factory GeofenceEvent.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      GeofenceEvent()..mergeFromBuffer(data, registry);
+  factory GeofenceEvent.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      GeofenceEvent()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'GeofenceEvent',
+      package:
+          const $pb.PackageName(_omitMessageNames ? '' : 'radian.telemetry.v1'),
+      createEmptyInstance: GeofenceEvent.$_createMessage)
+    ..aInt64(1, _omitFieldNames ? '' : 'id')
+    ..aOS(2, _omitFieldNames ? '' : 'geofenceId')
+    ..aOS(3, _omitFieldNames ? '' : 'geofenceName')
+    ..aE<GeofenceKind>(4, _omitFieldNames ? '' : 'kind',
+        enumValues: GeofenceKind.values)
+    ..aOS(5, _omitFieldNames ? '' : 'vehicleId')
+    ..aOS(6, _omitFieldNames ? '' : 'licensePlate')
+    ..aOB(7, _omitFieldNames ? '' : 'entered')
+    ..aInt64(8, _omitFieldNames ? '' : 'occurredAtMs')
+    ..aOM<GeoPoint>(9, _omitFieldNames ? '' : 'position',
+        subBuilder: GeoPoint.$_createMessage)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  GeofenceEvent clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  GeofenceEvent copyWith(void Function(GeofenceEvent) updates) =>
+      super.copyWith((message) => updates(message as GeofenceEvent))
+          as GeofenceEvent;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use GeofenceEvent() / GeofenceEvent.new instead')
+  static GeofenceEvent create() => GeofenceEvent._();
+  static $pb.GeneratedMessage $_createMessage() => GeofenceEvent._();
+  @$core.override
+  GeofenceEvent createEmptyInstance() => GeofenceEvent._();
+  @$core.pragma('dart2js:noInline')
+  static GeofenceEvent getDefault() =>
+      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<GeofenceEvent>(
+          GeofenceEvent.$_createMessage);
+  static GeofenceEvent? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $fixnum.Int64 get id => $_getI64(0);
+  @$pb.TagNumber(1)
+  set id($fixnum.Int64 value) => $_setInt64(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearId() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get geofenceId => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set geofenceId($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasGeofenceId() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearGeofenceId() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.String get geofenceName => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set geofenceName($core.String value) => $_setString(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasGeofenceName() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearGeofenceName() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  GeofenceKind get kind => $_getN(3);
+  @$pb.TagNumber(4)
+  set kind(GeofenceKind value) => $_setField(4, value);
+  @$pb.TagNumber(4)
+  $core.bool hasKind() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearKind() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $core.String get vehicleId => $_getSZ(4);
+  @$pb.TagNumber(5)
+  set vehicleId($core.String value) => $_setString(4, value);
+  @$pb.TagNumber(5)
+  $core.bool hasVehicleId() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearVehicleId() => $_clearField(5);
+
+  @$pb.TagNumber(6)
+  $core.String get licensePlate => $_getSZ(5);
+  @$pb.TagNumber(6)
+  set licensePlate($core.String value) => $_setString(5, value);
+  @$pb.TagNumber(6)
+  $core.bool hasLicensePlate() => $_has(5);
+  @$pb.TagNumber(6)
+  void clearLicensePlate() => $_clearField(6);
+
+  /// True on entering the zone, false on leaving it.
+  @$pb.TagNumber(7)
+  $core.bool get entered => $_getBF(6);
+  @$pb.TagNumber(7)
+  set entered($core.bool value) => $_setBool(6, value);
+  @$pb.TagNumber(7)
+  $core.bool hasEntered() => $_has(6);
+  @$pb.TagNumber(7)
+  void clearEntered() => $_clearField(7);
+
+  @$pb.TagNumber(8)
+  $fixnum.Int64 get occurredAtMs => $_getI64(7);
+  @$pb.TagNumber(8)
+  set occurredAtMs($fixnum.Int64 value) => $_setInt64(7, value);
+  @$pb.TagNumber(8)
+  $core.bool hasOccurredAtMs() => $_has(7);
+  @$pb.TagNumber(8)
+  void clearOccurredAtMs() => $_clearField(8);
+
+  @$pb.TagNumber(9)
+  GeoPoint get position => $_getN(8);
+  @$pb.TagNumber(9)
+  set position(GeoPoint value) => $_setField(9, value);
+  @$pb.TagNumber(9)
+  $core.bool hasPosition() => $_has(8);
+  @$pb.TagNumber(9)
+  void clearPosition() => $_clearField(9);
+  @$pb.TagNumber(9)
+  GeoPoint ensurePosition() => $_ensure(8);
+}
+
+/// Zones were created or deleted; dashboards (and the geofencer) reload them.
+class GeofencesChanged extends $pb.GeneratedMessage {
+  factory GeofencesChanged() => GeofencesChanged._();
+
+  GeofencesChanged._();
+
+  factory GeofencesChanged.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      GeofencesChanged()..mergeFromBuffer(data, registry);
+  factory GeofencesChanged.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      GeofencesChanged()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'GeofencesChanged',
+      package:
+          const $pb.PackageName(_omitMessageNames ? '' : 'radian.telemetry.v1'),
+      createEmptyInstance: GeofencesChanged.$_createMessage)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  GeofencesChanged clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  GeofencesChanged copyWith(void Function(GeofencesChanged) updates) =>
+      super.copyWith((message) => updates(message as GeofencesChanged))
+          as GeofencesChanged;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use GeofencesChanged() / GeofencesChanged.new instead')
+  static GeofencesChanged create() => GeofencesChanged._();
+  static $pb.GeneratedMessage $_createMessage() => GeofencesChanged._();
+  @$core.override
+  GeofencesChanged createEmptyInstance() => GeofencesChanged._();
+  @$core.pragma('dart2js:noInline')
+  static GeofencesChanged getDefault() =>
+      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<GeofencesChanged>(
+          GeofencesChanged.$_createMessage);
+  static GeofencesChanged? _defaultInstance;
+}
+
+enum DashboardServerMessage_Payload {
+  fleetUpdate,
+  jobsChanged,
+  geofenceEvent,
+  geofencesChanged,
+  notSet
+}
 
 class DashboardServerMessage extends $pb.GeneratedMessage {
   factory DashboardServerMessage({
     FleetUpdate? fleetUpdate,
     JobsChanged? jobsChanged,
+    GeofenceEvent? geofenceEvent,
+    GeofencesChanged? geofencesChanged,
   }) {
     final result = DashboardServerMessage._();
     if (fleetUpdate != null) result.fleetUpdate = fleetUpdate;
     if (jobsChanged != null) result.jobsChanged = jobsChanged;
+    if (geofenceEvent != null) result.geofenceEvent = geofenceEvent;
+    if (geofencesChanged != null) result.geofencesChanged = geofencesChanged;
     return result;
   }
 
@@ -1622,6 +1835,8 @@ class DashboardServerMessage extends $pb.GeneratedMessage {
       _DashboardServerMessage_PayloadByTag = {
     1: DashboardServerMessage_Payload.fleetUpdate,
     2: DashboardServerMessage_Payload.jobsChanged,
+    3: DashboardServerMessage_Payload.geofenceEvent,
+    4: DashboardServerMessage_Payload.geofencesChanged,
     0: DashboardServerMessage_Payload.notSet
   };
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
@@ -1629,11 +1844,15 @@ class DashboardServerMessage extends $pb.GeneratedMessage {
       package:
           const $pb.PackageName(_omitMessageNames ? '' : 'radian.telemetry.v1'),
       createEmptyInstance: DashboardServerMessage.$_createMessage)
-    ..oo(0, [1, 2])
+    ..oo(0, [1, 2, 3, 4])
     ..aOM<FleetUpdate>(1, _omitFieldNames ? '' : 'fleetUpdate',
         subBuilder: FleetUpdate.$_createMessage)
     ..aOM<JobsChanged>(2, _omitFieldNames ? '' : 'jobsChanged',
         subBuilder: JobsChanged.$_createMessage)
+    ..aOM<GeofenceEvent>(3, _omitFieldNames ? '' : 'geofenceEvent',
+        subBuilder: GeofenceEvent.$_createMessage)
+    ..aOM<GeofencesChanged>(4, _omitFieldNames ? '' : 'geofencesChanged',
+        subBuilder: GeofencesChanged.$_createMessage)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -1662,10 +1881,14 @@ class DashboardServerMessage extends $pb.GeneratedMessage {
 
   @$pb.TagNumber(1)
   @$pb.TagNumber(2)
+  @$pb.TagNumber(3)
+  @$pb.TagNumber(4)
   DashboardServerMessage_Payload whichPayload() =>
       _DashboardServerMessage_PayloadByTag[$_whichOneof(0)]!;
   @$pb.TagNumber(1)
   @$pb.TagNumber(2)
+  @$pb.TagNumber(3)
+  @$pb.TagNumber(4)
   void clearPayload() => $_clearField($_whichOneof(0));
 
   @$pb.TagNumber(1)
@@ -1689,6 +1912,28 @@ class DashboardServerMessage extends $pb.GeneratedMessage {
   void clearJobsChanged() => $_clearField(2);
   @$pb.TagNumber(2)
   JobsChanged ensureJobsChanged() => $_ensure(1);
+
+  @$pb.TagNumber(3)
+  GeofenceEvent get geofenceEvent => $_getN(2);
+  @$pb.TagNumber(3)
+  set geofenceEvent(GeofenceEvent value) => $_setField(3, value);
+  @$pb.TagNumber(3)
+  $core.bool hasGeofenceEvent() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearGeofenceEvent() => $_clearField(3);
+  @$pb.TagNumber(3)
+  GeofenceEvent ensureGeofenceEvent() => $_ensure(2);
+
+  @$pb.TagNumber(4)
+  GeofencesChanged get geofencesChanged => $_getN(3);
+  @$pb.TagNumber(4)
+  set geofencesChanged(GeofencesChanged value) => $_setField(4, value);
+  @$pb.TagNumber(4)
+  $core.bool hasGeofencesChanged() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearGeofencesChanged() => $_clearField(4);
+  @$pb.TagNumber(4)
+  GeofencesChanged ensureGeofencesChanged() => $_ensure(3);
 }
 
 const $core.bool _omitFieldNames =

@@ -9,6 +9,9 @@ const (
 	// PersisterGroup is the consumer group that writes telemetry to Postgres.
 	PersisterGroup = "persister"
 
+	// GeofenceGroup is the consumer group that detects zone enter/exit.
+	GeofenceGroup = "geofencer"
+
 	FieldVehicleID  = "v" // vehicle UUID
 	FieldBatch      = "b" // protobuf-encoded TelemetryBatch
 	FieldReceivedMs = "r" // server receive time, Unix ms
@@ -21,6 +24,9 @@ const (
 	DevicePattern = "dispatch:device:*"
 	// JobsChannel carries JobsChanged notices for dashboards.
 	JobsChannel = "dispatch:jobs"
+	// GeofenceChannel carries DashboardServerMessages (GeofenceEvent,
+	// GeofencesChanged) that broadcast forwards to dashboards as-is.
+	GeofenceChannel = "geofence:events"
 )
 
 // DeviceChannel carries ServerMessages for one vehicle's phone.

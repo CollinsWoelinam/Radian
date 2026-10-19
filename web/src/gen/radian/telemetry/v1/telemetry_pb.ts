@@ -10,7 +10,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file radian/telemetry/v1/telemetry.proto.
  */
 export const file_radian_telemetry_v1_telemetry: GenFile = /*@__PURE__*/
-  fileDesc("CiNyYWRpYW4vdGVsZW1ldHJ5L3YxL3RlbGVtZXRyeS5wcm90bxITcmFkaWFuLnRlbGVtZXRyeS52MSKjAgoNTG9jYXRpb25Qb2ludBILCgNzZXEYASABKAMSEAoIbGF0aXR1ZGUYAiABKAESEQoJbG9uZ2l0dWRlGAMgASgBEhYKDnJlY29yZGVkX2F0X21zGAQgASgDEhYKCXNwZWVkX2ttaBgFIAEoAkgAiAEBEhgKC2hlYWRpbmdfZGVnGAYgASgCSAGIAQESFwoKYWNjdXJhY3lfbRgHIAEoAkgCiAEBEhcKCmFsdGl0dWRlX20YCCABKAJIA4gBARIYCgtiYXR0ZXJ5X3BjdBgJIAEoBUgEiAEBQgwKCl9zcGVlZF9rbWhCDgoMX2hlYWRpbmdfZGVnQg0KC19hY2N1cmFjeV9tQg0KC19hbHRpdHVkZV9tQg4KDF9iYXR0ZXJ5X3BjdCJZCg5UZWxlbWV0cnlCYXRjaBIyCgZwb2ludHMYASADKAsyIi5yYWRpYW4udGVsZW1ldHJ5LnYxLkxvY2F0aW9uUG9pbnQSEwoLaXNfYmFja2ZpbGwYAiABKAgiIwoJSGVhcnRiZWF0EhYKDmNsaWVudF90aW1lX21zGAEgASgDIsEBCg1DbGllbnRNZXNzYWdlEjQKBWJhdGNoGAEgASgLMiMucmFkaWFuLnRlbGVtZXRyeS52MS5UZWxlbWV0cnlCYXRjaEgAEjMKCWhlYXJ0YmVhdBgCIAEoCzIeLnJhZGlhbi50ZWxlbWV0cnkudjEuSGVhcnRiZWF0SAASOgoKam9iX3N0YXR1cxgDIAEoCzIkLnJhZGlhbi50ZWxlbWV0cnkudjEuSm9iU3RhdHVzVXBkYXRlSABCCQoHcGF5bG9hZCIdCghCYXRjaEFjaxIRCglhY2tlZF9zZXEYASABKAMifQoOVHJhY2tpbmdDb25maWcSGgoSbW92aW5nX2ludGVydmFsX21zGAEgASgFEhkKEWRpc3RhbmNlX2ZpbHRlcl9tGAIgASgFEhYKDm1heF9hY2N1cmFjeV9tGAMgASgCEhwKFHN0YXRpb25hcnlfc3BlZWRfa21oGAQgASgCIu8BCg1TZXJ2ZXJNZXNzYWdlEiwKA2FjaxgBIAEoCzIdLnJhZGlhbi50ZWxlbWV0cnkudjEuQmF0Y2hBY2tIABI1CgZjb25maWcYAiABKAsyIy5yYWRpYW4udGVsZW1ldHJ5LnYxLlRyYWNraW5nQ29uZmlnSAASMgoJam9iX29mZmVyGAMgASgLMh0ucmFkaWFuLnRlbGVtZXRyeS52MS5Kb2JPZmZlckgAEjoKDWpvYl9jYW5jZWxsZWQYBCABKAsyIS5yYWRpYW4udGVsZW1ldHJ5LnYxLkpvYkNhbmNlbGxlZEgAQgkKB3BheWxvYWQiLwoIR2VvUG9pbnQSEAoIbGF0aXR1ZGUYASABKAESEQoJbG9uZ2l0dWRlGAIgASgBIrECCghKb2JPZmZlchIOCgZqb2JfaWQYASABKAkSLQoGcGlja3VwGAIgASgLMh0ucmFkaWFuLnRlbGVtZXRyeS52MS5HZW9Qb2ludBIWCg5waWNrdXBfYWRkcmVzcxgDIAEoCRIzCgdkcm9wb2ZmGAQgASgLMh0ucmFkaWFuLnRlbGVtZXRyeS52MS5HZW9Qb2ludEgAiAEBEhwKD2Ryb3BvZmZfYWRkcmVzcxgFIAEoCUgBiAEBEhAKCHByaW9yaXR5GAYgASgFEhMKC2V0YV9zZWNvbmRzGAcgASgFEg0KBW5vdGVzGAggASgJEhUKDWV4cGlyZXNfYXRfbXMYCSABKAMSDgoGbnVtYmVyGAogASgDQgoKCF9kcm9wb2ZmQhIKEF9kcm9wb2ZmX2FkZHJlc3MiLgoMSm9iQ2FuY2VsbGVkEg4KBmpvYl9pZBgBIAEoCRIOCgZyZWFzb24YAiABKAkiaQoPSm9iU3RhdHVzVXBkYXRlEg4KBmpvYl9pZBgBIAEoCRIuCgZzdGF0dXMYAiABKA4yHi5yYWRpYW4udGVsZW1ldHJ5LnYxLkpvYlN0YXR1cxIWCg5vY2N1cnJlZF9hdF9tcxgDIAEoAyJRCgtCb3VuZGluZ0JveBIPCgdtaW5fbG9uGAEgASgBEg8KB21pbl9sYXQYAiABKAESDwoHbWF4X2xvbhgDIAEoARIPCgdtYXhfbGF0GAQgASgBIkgKEkRhc2hib2FyZFN1YnNjcmliZRIyCgh2aWV3cG9ydBgBIAEoCzIgLnJhZGlhbi50ZWxlbWV0cnkudjEuQm91bmRpbmdCb3giYQoWRGFzaGJvYXJkQ2xpZW50TWVzc2FnZRI8CglzdWJzY3JpYmUYASABKAsyJy5yYWRpYW4udGVsZW1ldHJ5LnYxLkRhc2hib2FyZFN1YnNjcmliZUgAQgkKB3BheWxvYWQiuwEKDFZlaGljbGVEZWx0YRISCgp2ZWhpY2xlX2lkGAEgASgJEhAKCGxhdGl0dWRlGAIgASgBEhEKCWxvbmdpdHVkZRgDIAEoARITCgtoZWFkaW5nX2RlZxgEIAEoAhIRCglzcGVlZF9rbWgYBSABKAISMgoGc3RhdHVzGAYgASgOMiIucmFkaWFuLnRlbGVtZXRyeS52MS5WZWhpY2xlU3RhdHVzEhYKDnJlY29yZGVkX2F0X21zGAcgASgDIooBCgtGbGVldFVwZGF0ZRIxCgZkZWx0YXMYASADKAsyIS5yYWRpYW4udGVsZW1ldHJ5LnYxLlZlaGljbGVEZWx0YRIbChNyZW1vdmVkX3ZlaGljbGVfaWRzGAIgAygJEhYKDnNlcnZlcl90aW1lX21zGAMgASgDEhMKC2lzX3NuYXBzaG90GAQgASgIIh4KC0pvYnNDaGFuZ2VkEg8KB2pvYl9pZHMYASADKAkilwEKFkRhc2hib2FyZFNlcnZlck1lc3NhZ2USOAoMZmxlZXRfdXBkYXRlGAEgASgLMiAucmFkaWFuLnRlbGVtZXRyeS52MS5GbGVldFVwZGF0ZUgAEjgKDGpvYnNfY2hhbmdlZBgCIAEoCzIgLnJhZGlhbi50ZWxlbWV0cnkudjEuSm9ic0NoYW5nZWRIAEIJCgdwYXlsb2FkKuUBCglKb2JTdGF0dXMSGgoWSk9CX1NUQVRVU19VTlNQRUNJRklFRBAAEhYKEkpPQl9TVEFUVVNfUEVORElORxABEhcKE0pPQl9TVEFUVVNfQVNTSUdORUQQAhIeChpKT0JfU1RBVFVTX0VOX1JPVVRFX1BJQ0tVUBADEhYKEkpPQl9TVEFUVVNfT05fU0lURRAEEh8KG0pPQl9TVEFUVVNfRU5fUk9VVEVfRFJPUE9GRhAFEhgKFEpPQl9TVEFUVVNfQ09NUExFVEVEEAYSGAoUSk9CX1NUQVRVU19DQU5DRUxMRUQQByqcAQoNVmVoaWNsZVN0YXR1cxIeChpWRUhJQ0xFX1NUQVRVU19VTlNQRUNJRklFRBAAEhoKFlZFSElDTEVfU1RBVFVTX09GRkxJTkUQARIXChNWRUhJQ0xFX1NUQVRVU19JRExFEAISGwoXVkVISUNMRV9TVEFUVVNfRU5fUk9VVEUQAxIZChVWRUhJQ0xFX1NUQVRVU19PTl9KT0IQBEJPWk1naXRodWIuY29tL0NvbGxpbnNXb2VsaW5hbS9SYWRpYW4vYmFja2VuZC9nZW4vcmFkaWFuL3RlbGVtZXRyeS92MTt0ZWxlbWV0cnl2MWIGcHJvdG8z");
+  fileDesc("CiNyYWRpYW4vdGVsZW1ldHJ5L3YxL3RlbGVtZXRyeS5wcm90bxITcmFkaWFuLnRlbGVtZXRyeS52MSKjAgoNTG9jYXRpb25Qb2ludBILCgNzZXEYASABKAMSEAoIbGF0aXR1ZGUYAiABKAESEQoJbG9uZ2l0dWRlGAMgASgBEhYKDnJlY29yZGVkX2F0X21zGAQgASgDEhYKCXNwZWVkX2ttaBgFIAEoAkgAiAEBEhgKC2hlYWRpbmdfZGVnGAYgASgCSAGIAQESFwoKYWNjdXJhY3lfbRgHIAEoAkgCiAEBEhcKCmFsdGl0dWRlX20YCCABKAJIA4gBARIYCgtiYXR0ZXJ5X3BjdBgJIAEoBUgEiAEBQgwKCl9zcGVlZF9rbWhCDgoMX2hlYWRpbmdfZGVnQg0KC19hY2N1cmFjeV9tQg0KC19hbHRpdHVkZV9tQg4KDF9iYXR0ZXJ5X3BjdCJZCg5UZWxlbWV0cnlCYXRjaBIyCgZwb2ludHMYASADKAsyIi5yYWRpYW4udGVsZW1ldHJ5LnYxLkxvY2F0aW9uUG9pbnQSEwoLaXNfYmFja2ZpbGwYAiABKAgiIwoJSGVhcnRiZWF0EhYKDmNsaWVudF90aW1lX21zGAEgASgDIsEBCg1DbGllbnRNZXNzYWdlEjQKBWJhdGNoGAEgASgLMiMucmFkaWFuLnRlbGVtZXRyeS52MS5UZWxlbWV0cnlCYXRjaEgAEjMKCWhlYXJ0YmVhdBgCIAEoCzIeLnJhZGlhbi50ZWxlbWV0cnkudjEuSGVhcnRiZWF0SAASOgoKam9iX3N0YXR1cxgDIAEoCzIkLnJhZGlhbi50ZWxlbWV0cnkudjEuSm9iU3RhdHVzVXBkYXRlSABCCQoHcGF5bG9hZCIdCghCYXRjaEFjaxIRCglhY2tlZF9zZXEYASABKAMifQoOVHJhY2tpbmdDb25maWcSGgoSbW92aW5nX2ludGVydmFsX21zGAEgASgFEhkKEWRpc3RhbmNlX2ZpbHRlcl9tGAIgASgFEhYKDm1heF9hY2N1cmFjeV9tGAMgASgCEhwKFHN0YXRpb25hcnlfc3BlZWRfa21oGAQgASgCIu8BCg1TZXJ2ZXJNZXNzYWdlEiwKA2FjaxgBIAEoCzIdLnJhZGlhbi50ZWxlbWV0cnkudjEuQmF0Y2hBY2tIABI1CgZjb25maWcYAiABKAsyIy5yYWRpYW4udGVsZW1ldHJ5LnYxLlRyYWNraW5nQ29uZmlnSAASMgoJam9iX29mZmVyGAMgASgLMh0ucmFkaWFuLnRlbGVtZXRyeS52MS5Kb2JPZmZlckgAEjoKDWpvYl9jYW5jZWxsZWQYBCABKAsyIS5yYWRpYW4udGVsZW1ldHJ5LnYxLkpvYkNhbmNlbGxlZEgAQgkKB3BheWxvYWQiLwoIR2VvUG9pbnQSEAoIbGF0aXR1ZGUYASABKAESEQoJbG9uZ2l0dWRlGAIgASgBIrECCghKb2JPZmZlchIOCgZqb2JfaWQYASABKAkSLQoGcGlja3VwGAIgASgLMh0ucmFkaWFuLnRlbGVtZXRyeS52MS5HZW9Qb2ludBIWCg5waWNrdXBfYWRkcmVzcxgDIAEoCRIzCgdkcm9wb2ZmGAQgASgLMh0ucmFkaWFuLnRlbGVtZXRyeS52MS5HZW9Qb2ludEgAiAEBEhwKD2Ryb3BvZmZfYWRkcmVzcxgFIAEoCUgBiAEBEhAKCHByaW9yaXR5GAYgASgFEhMKC2V0YV9zZWNvbmRzGAcgASgFEg0KBW5vdGVzGAggASgJEhUKDWV4cGlyZXNfYXRfbXMYCSABKAMSDgoGbnVtYmVyGAogASgDQgoKCF9kcm9wb2ZmQhIKEF9kcm9wb2ZmX2FkZHJlc3MiLgoMSm9iQ2FuY2VsbGVkEg4KBmpvYl9pZBgBIAEoCRIOCgZyZWFzb24YAiABKAkiaQoPSm9iU3RhdHVzVXBkYXRlEg4KBmpvYl9pZBgBIAEoCRIuCgZzdGF0dXMYAiABKA4yHi5yYWRpYW4udGVsZW1ldHJ5LnYxLkpvYlN0YXR1cxIWCg5vY2N1cnJlZF9hdF9tcxgDIAEoAyJRCgtCb3VuZGluZ0JveBIPCgdtaW5fbG9uGAEgASgBEg8KB21pbl9sYXQYAiABKAESDwoHbWF4X2xvbhgDIAEoARIPCgdtYXhfbGF0GAQgASgBIkgKEkRhc2hib2FyZFN1YnNjcmliZRIyCgh2aWV3cG9ydBgBIAEoCzIgLnJhZGlhbi50ZWxlbWV0cnkudjEuQm91bmRpbmdCb3giYQoWRGFzaGJvYXJkQ2xpZW50TWVzc2FnZRI8CglzdWJzY3JpYmUYASABKAsyJy5yYWRpYW4udGVsZW1ldHJ5LnYxLkRhc2hib2FyZFN1YnNjcmliZUgAQgkKB3BheWxvYWQiuwEKDFZlaGljbGVEZWx0YRISCgp2ZWhpY2xlX2lkGAEgASgJEhAKCGxhdGl0dWRlGAIgASgBEhEKCWxvbmdpdHVkZRgDIAEoARITCgtoZWFkaW5nX2RlZxgEIAEoAhIRCglzcGVlZF9rbWgYBSABKAISMgoGc3RhdHVzGAYgASgOMiIucmFkaWFuLnRlbGVtZXRyeS52MS5WZWhpY2xlU3RhdHVzEhYKDnJlY29yZGVkX2F0X21zGAcgASgDIooBCgtGbGVldFVwZGF0ZRIxCgZkZWx0YXMYASADKAsyIS5yYWRpYW4udGVsZW1ldHJ5LnYxLlZlaGljbGVEZWx0YRIbChNyZW1vdmVkX3ZlaGljbGVfaWRzGAIgAygJEhYKDnNlcnZlcl90aW1lX21zGAMgASgDEhMKC2lzX3NuYXBzaG90GAQgASgIIh4KC0pvYnNDaGFuZ2VkEg8KB2pvYl9pZHMYASADKAki/QEKDUdlb2ZlbmNlRXZlbnQSCgoCaWQYASABKAMSEwoLZ2VvZmVuY2VfaWQYAiABKAkSFQoNZ2VvZmVuY2VfbmFtZRgDIAEoCRIvCgRraW5kGAQgASgOMiEucmFkaWFuLnRlbGVtZXRyeS52MS5HZW9mZW5jZUtpbmQSEgoKdmVoaWNsZV9pZBgFIAEoCRIVCg1saWNlbnNlX3BsYXRlGAYgASgJEg8KB2VudGVyZWQYByABKAgSFgoOb2NjdXJyZWRfYXRfbXMYCCABKAMSLwoIcG9zaXRpb24YCSABKAsyHS5yYWRpYW4udGVsZW1ldHJ5LnYxLkdlb1BvaW50IhIKEEdlb2ZlbmNlc0NoYW5nZWQimQIKFkRhc2hib2FyZFNlcnZlck1lc3NhZ2USOAoMZmxlZXRfdXBkYXRlGAEgASgLMiAucmFkaWFuLnRlbGVtZXRyeS52MS5GbGVldFVwZGF0ZUgAEjgKDGpvYnNfY2hhbmdlZBgCIAEoCzIgLnJhZGlhbi50ZWxlbWV0cnkudjEuSm9ic0NoYW5nZWRIABI8Cg5nZW9mZW5jZV9ldmVudBgDIAEoCzIiLnJhZGlhbi50ZWxlbWV0cnkudjEuR2VvZmVuY2VFdmVudEgAEkIKEWdlb2ZlbmNlc19jaGFuZ2VkGAQgASgLMiUucmFkaWFuLnRlbGVtZXRyeS52MS5HZW9mZW5jZXNDaGFuZ2VkSABCCQoHcGF5bG9hZCrlAQoJSm9iU3RhdHVzEhoKFkpPQl9TVEFUVVNfVU5TUEVDSUZJRUQQABIWChJKT0JfU1RBVFVTX1BFTkRJTkcQARIXChNKT0JfU1RBVFVTX0FTU0lHTkVEEAISHgoaSk9CX1NUQVRVU19FTl9ST1VURV9QSUNLVVAQAxIWChJKT0JfU1RBVFVTX09OX1NJVEUQBBIfChtKT0JfU1RBVFVTX0VOX1JPVVRFX0RST1BPRkYQBRIYChRKT0JfU1RBVFVTX0NPTVBMRVRFRBAGEhgKFEpPQl9TVEFUVVNfQ0FOQ0VMTEVEEAcqnAEKDVZlaGljbGVTdGF0dXMSHgoaVkVISUNMRV9TVEFUVVNfVU5TUEVDSUZJRUQQABIaChZWRUhJQ0xFX1NUQVRVU19PRkZMSU5FEAESFwoTVkVISUNMRV9TVEFUVVNfSURMRRACEhsKF1ZFSElDTEVfU1RBVFVTX0VOX1JPVVRFEAMSGQoVVkVISUNMRV9TVEFUVVNfT05fSk9CEAQqhAEKDEdlb2ZlbmNlS2luZBIdChlHRU9GRU5DRV9LSU5EX1VOU1BFQ0lGSUVEEAASFwoTR0VPRkVOQ0VfS0lORF9ERVBPVBABEh4KGkdFT0ZFTkNFX0tJTkRfU0VSVklDRV9BUkVBEAISHAoYR0VPRkVOQ0VfS0lORF9SRVNUUklDVEVEEANCT1pNZ2l0aHViLmNvbS9Db2xsaW5zV29lbGluYW0vUmFkaWFuL2JhY2tlbmQvZ2VuL3JhZGlhbi90ZWxlbWV0cnkvdjE7dGVsZW1ldHJ5djFiBnByb3RvMw");
 
 /**
  * @generated from message radian.telemetry.v1.LocationPoint
@@ -566,6 +566,82 @@ export const JobsChangedSchema: GenMessage<JobsChanged> = /*@__PURE__*/
   messageDesc(file_radian_telemetry_v1_telemetry, 16);
 
 /**
+ * A vehicle crossed a zone boundary (confirmed by consecutive fixes).
+ *
+ * @generated from message radian.telemetry.v1.GeofenceEvent
+ */
+export type GeofenceEvent = Message<"radian.telemetry.v1.GeofenceEvent"> & {
+  /**
+   * @generated from field: int64 id = 1;
+   */
+  id: bigint;
+
+  /**
+   * @generated from field: string geofence_id = 2;
+   */
+  geofenceId: string;
+
+  /**
+   * @generated from field: string geofence_name = 3;
+   */
+  geofenceName: string;
+
+  /**
+   * @generated from field: radian.telemetry.v1.GeofenceKind kind = 4;
+   */
+  kind: GeofenceKind;
+
+  /**
+   * @generated from field: string vehicle_id = 5;
+   */
+  vehicleId: string;
+
+  /**
+   * @generated from field: string license_plate = 6;
+   */
+  licensePlate: string;
+
+  /**
+   * True on entering the zone, false on leaving it.
+   *
+   * @generated from field: bool entered = 7;
+   */
+  entered: boolean;
+
+  /**
+   * @generated from field: int64 occurred_at_ms = 8;
+   */
+  occurredAtMs: bigint;
+
+  /**
+   * @generated from field: radian.telemetry.v1.GeoPoint position = 9;
+   */
+  position?: GeoPoint | undefined;
+};
+
+/**
+ * Describes the message radian.telemetry.v1.GeofenceEvent.
+ * Use `create(GeofenceEventSchema)` to create a new message.
+ */
+export const GeofenceEventSchema: GenMessage<GeofenceEvent> = /*@__PURE__*/
+  messageDesc(file_radian_telemetry_v1_telemetry, 17);
+
+/**
+ * Zones were created or deleted; dashboards (and the geofencer) reload them.
+ *
+ * @generated from message radian.telemetry.v1.GeofencesChanged
+ */
+export type GeofencesChanged = Message<"radian.telemetry.v1.GeofencesChanged"> & {
+};
+
+/**
+ * Describes the message radian.telemetry.v1.GeofencesChanged.
+ * Use `create(GeofencesChangedSchema)` to create a new message.
+ */
+export const GeofencesChangedSchema: GenMessage<GeofencesChanged> = /*@__PURE__*/
+  messageDesc(file_radian_telemetry_v1_telemetry, 18);
+
+/**
  * @generated from message radian.telemetry.v1.DashboardServerMessage
  */
 export type DashboardServerMessage = Message<"radian.telemetry.v1.DashboardServerMessage"> & {
@@ -584,6 +660,18 @@ export type DashboardServerMessage = Message<"radian.telemetry.v1.DashboardServe
      */
     value: JobsChanged;
     case: "jobsChanged";
+  } | {
+    /**
+     * @generated from field: radian.telemetry.v1.GeofenceEvent geofence_event = 3;
+     */
+    value: GeofenceEvent;
+    case: "geofenceEvent";
+  } | {
+    /**
+     * @generated from field: radian.telemetry.v1.GeofencesChanged geofences_changed = 4;
+     */
+    value: GeofencesChanged;
+    case: "geofencesChanged";
   } | { case: undefined; value?: undefined };
 };
 
@@ -592,7 +680,7 @@ export type DashboardServerMessage = Message<"radian.telemetry.v1.DashboardServe
  * Use `create(DashboardServerMessageSchema)` to create a new message.
  */
 export const DashboardServerMessageSchema: GenMessage<DashboardServerMessage> = /*@__PURE__*/
-  messageDesc(file_radian_telemetry_v1_telemetry, 17);
+  messageDesc(file_radian_telemetry_v1_telemetry, 19);
 
 /**
  * @generated from enum radian.telemetry.v1.JobStatus
@@ -680,4 +768,35 @@ export enum VehicleStatus {
  */
 export const VehicleStatusSchema: GenEnum<VehicleStatus> = /*@__PURE__*/
   enumDesc(file_radian_telemetry_v1_telemetry, 1);
+
+/**
+ * @generated from enum radian.telemetry.v1.GeofenceKind
+ */
+export enum GeofenceKind {
+  /**
+   * @generated from enum value: GEOFENCE_KIND_UNSPECIFIED = 0;
+   */
+  UNSPECIFIED = 0,
+
+  /**
+   * @generated from enum value: GEOFENCE_KIND_DEPOT = 1;
+   */
+  DEPOT = 1,
+
+  /**
+   * @generated from enum value: GEOFENCE_KIND_SERVICE_AREA = 2;
+   */
+  SERVICE_AREA = 2,
+
+  /**
+   * @generated from enum value: GEOFENCE_KIND_RESTRICTED = 3;
+   */
+  RESTRICTED = 3,
+}
+
+/**
+ * Describes the enum radian.telemetry.v1.GeofenceKind.
+ */
+export const GeofenceKindSchema: GenEnum<GeofenceKind> = /*@__PURE__*/
+  enumDesc(file_radian_telemetry_v1_telemetry, 2);
 

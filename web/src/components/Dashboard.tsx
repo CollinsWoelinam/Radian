@@ -3,11 +3,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { MapRef } from "react-map-gl/maplibre";
 
-import FleetMap, { type JobOverlay } from "./FleetMap";
+import FleetMap, { type JobOverlay, type ZoneOverlay } from "./FleetMap";
 import JobsPanel, { type PanelMode } from "./JobsPanel";
+import ZonesPanel, { type ZoneMode } from "./ZonesPanel";
 import LoginScreen from "./LoginScreen";
 import { clearSession, loadSession, type DispatcherSession } from "@/lib/auth";
 import { JobsApi, type Job, type JobDetail, type LatLon } from "@/lib/jobs";
+import { GeofencesApi, describe, fromMessage, severity, type Severity, type Zone, type ZoneEvent, type ZoneKind } from "@/lib/geofences";
 import { FleetStore } from "@/lib/fleet-store";
 import { FleetSocket, type ConnectionState, type Viewport } from "@/lib/fleet-socket";
 import { fetchRegistry, type VehicleInfo } from "@/lib/registry";
@@ -30,6 +32,9 @@ function initialTheme(): Theme {
 }
 
 type Draft = { pickup?: LatLon; dropoff?: LatLon | null };
+type Toast = { key: number; event: ZoneEvent; severity: Severity };
+const TOAST_MS = 8000;
+const MAX_TOASTS = 3;
 
 /** Signs the dispatcher in, then shows the live dashboard. */
 export default function Dashboard() {
@@ -67,6 +72,17 @@ function FleetDashboard({ session, onSignOut }: { session: DispatcherSession; on
   const [jobsOpen, setJobsOpen] = useState(false); // small screens
   const jobOverlay = useRef<JobOverlay>({ jobs: [], selectedJob: null, draft: null, picking: false });
   const selectedJobRef = useRef<string | null>(null);
+  const [sideTab, setSideTab] = useState<"jobs" | "zones">("jobs");
+  const zonesApi = useMemo(() => new GeofencesApi(session.token, onSignOut), [session.token, onSignOut]);
+  const [zones, setZones] = useState<Zone[]>([]);
+  const [zoneEvents, setZoneEvents] = useState<ZoneEvent[]>([]);
+  const [zoneMode, setZoneMode] = useState<ZoneMode>("list");
+  const [outline, setOutline] = useState<[number, number][]>([]);
+  const [outlineClosed, setOutlineClosed] = useState(false);
+  const [zoneError, setZoneError] = useState<string | null>(null);
+  const [highlightZone, setHighlightZone] = useState<string | null>(null);
+  const [toasts, setToasts] = useState<Toast[]>([]);
+  const zoneOverlay = useRef<ZoneOverlay>({ zones: [], highlightId: null, draft: null, draftClosed: false, alerts: [] });
   const [snap, setSnap] = useState<Snapshot>({
     counts: { EN_ROUTE: 0, ON_JOB: 0, IDLE: 0, OFFLINE: 0 },
     total: 0,
@@ -121,10 +137,114 @@ function FleetDashboard({ session, onSignOut }: { session: DispatcherSession; on
   // Only show detail that belongs to the current selection (a stale fetch may linger).
   const shownJob = selectedJob && selectedJob.id === selectedJobId ? selectedJob : null;
 
+  // --- Zones ------------------------------------------------------------------
+  const refreshZones = useCallback(async () => {
+    try {
+      setZones(await zonesApi.list());
+    } catch {}
+  }, [zonesApi]);
+
   useEffect(() => {
-    const picking = panel === "create" && (!draft?.pickup || draft.dropoff === undefined);
+    const first = setTimeout(async () => {
+      refreshZones();
+      try {
+        const evs = await zonesApi.events(100);
+        setZoneEvents((live) => mergeEvents(live, evs));
+      } catch {}
+    }, 0);
+    const t = setInterval(refreshZones, 30_000); // keeps "inside" counts current
+    return () => {
+      clearTimeout(first);
+      clearInterval(t);
+    };
+  }, [refreshZones, zonesApi]);
+
+  const drawing = sideTab === "zones" && zoneMode === "draw";
+  useEffect(() => {
+    zoneOverlay.current = {
+      ...zoneOverlay.current,
+      zones,
+      highlightId: highlightZone,
+      draft: drawing ? outline : null,
+      draftClosed: outlineClosed,
+    };
+  }, [zones, highlightZone, drawing, outline, outlineClosed]);
+
+  const zoneTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const toastKey = useRef(0);
+  const onGeofenceEvent = useCallback(
+    (e: ZoneEvent) => {
+      setZoneEvents((prev) => mergeEvents([e], prev));
+      // Counts change with every crossing; refetch once per burst.
+      if (zoneTimer.current) clearTimeout(zoneTimer.current);
+      zoneTimer.current = setTimeout(refreshZones, 1000);
+      const sev = severity(e.kind, e.entered);
+      if (sev === "info") return;
+      if (e.position) {
+        const alerts = zoneOverlay.current.alerts.filter((a) => performance.now() - a.t < 5000);
+        zoneOverlay.current.alerts = [...alerts, { at: e.position, t: performance.now(), severity: sev }];
+      }
+      const key = ++toastKey.current;
+      setToasts((t) => [...t, { key, event: e, severity: sev }].slice(-MAX_TOASTS));
+      setTimeout(() => setToasts((t) => t.filter((x) => x.key !== key)), TOAST_MS);
+    },
+    [refreshZones],
+  );
+
+  const fitZone = useCallback((z: Zone) => {
+    const pts = z.area.flat(2);
+    const lons = pts.map((p) => p[0]);
+    const lats = pts.map((p) => p[1]);
+    mapRef.current?.fitBounds(
+      [
+        [Math.min(...lons), Math.min(...lats)],
+        [Math.max(...lons), Math.max(...lats)],
+      ],
+      { padding: { top: 80, bottom: 80, left: 360, right: 400 }, maxZoom: 16, duration: 800 },
+    );
+  }, []);
+
+  const startZone = () => {
+    setZoneError(null);
+    setOutline([]);
+    setOutlineClosed(false);
+    setHighlightZone(null);
+    setZoneMode("draw");
+  };
+  const endZone = () => {
+    setZoneError(null);
+    setOutline([]);
+    setOutlineClosed(false);
+    setZoneMode("list");
+  };
+  const saveZone = async (name: string, kind: ZoneKind) => {
+    setZoneError(null);
+    try {
+      const z = await zonesApi.create({ name: name.trim(), kind, polygon: outline });
+      endZone();
+      setZones((prev) => [...prev.filter((x) => x.id !== z.id), z]);
+      setHighlightZone(z.id);
+      refreshZones();
+    } catch (e) {
+      setZoneError(e instanceof Error ? e.message : "Couldn't save the zone.");
+    }
+  };
+  const deleteZone = async (z: Zone) => {
+    setZoneError(null);
+    try {
+      await zonesApi.remove(z.id);
+      setZones((prev) => prev.filter((x) => x.id !== z.id));
+      setZoneEvents((prev) => prev.filter((e) => e.geofence_id !== z.id));
+      if (highlightZone === z.id) setHighlightZone(null);
+    } catch (e) {
+      setZoneError(e instanceof Error ? e.message : "Couldn't delete the zone.");
+    }
+  };
+
+  useEffect(() => {
+    const picking = sideTab === "jobs" && panel === "create" && (!draft?.pickup || draft.dropoff === undefined);
     jobOverlay.current = { jobs: active, selectedJob: shownJob, draft: draft && { pickup: draft.pickup, dropoff: draft.dropoff ?? undefined }, picking };
-  }, [active, shownJob, draft, panel]);
+  }, [active, shownJob, draft, panel, sideTab]);
 
   // Job-change pushes arrive in bursts (offer, accept, status); refetch once per burst.
   const jobsTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -138,11 +258,15 @@ function FleetDashboard({ session, onSignOut }: { session: DispatcherSession; on
 
   useEffect(() => {
     const url = `${FLEET_WS_URL}?token=${encodeURIComponent(session.token)}`;
-    const socket = new FleetSocket(url, (u) => store.apply(u, performance.now()), setConn, onJobsChanged);
+    const socket = new FleetSocket(url, (u) => store.apply(u, performance.now()), setConn, {
+      onJobsChanged,
+      onGeofenceEvent: (m) => onGeofenceEvent(fromMessage(m)),
+      onGeofencesChanged: refreshZones,
+    });
     socketRef.current = socket;
     socket.connect();
     return () => socket.close();
-  }, [store, session.token, onJobsChanged]);
+  }, [store, session.token, onJobsChanged, onGeofenceEvent, refreshZones]);
 
   useEffect(() => {
     const ctrl = new AbortController();
@@ -247,7 +371,39 @@ function FleetDashboard({ session, onSignOut }: { session: DispatcherSession; on
         jobOverlay={jobOverlay}
         onSelectJob={selectJob}
         onMapClick={onMapClick}
+        zoneOverlay={zoneOverlay}
+        drawing={drawing}
+        onDrawPoint={(p) => setOutline((o) => [...o, p])}
+        onCloseDraft={() => setOutlineClosed(true)}
       />
+
+      {/* Zone alerts */}
+      <ol className="pointer-events-none absolute inset-x-2 top-2 z-30 flex flex-col items-center gap-2 sm:top-4" aria-live="assertive">
+        {toasts.map((t) => (
+          <li key={t.key} className="pointer-events-auto w-full max-w-sm">
+            <button
+              className={`panel flex w-full items-start gap-3 border-l-4 p-3 text-left ${t.severity === "critical" ? "border-l-red-500" : "border-l-amber-500"}`}
+              onClick={() => {
+                setToasts((all) => all.filter((x) => x.key !== t.key));
+                if (store.get(t.event.vehicle_id)) select(t.event.vehicle_id, true);
+                else if (t.event.position) {
+                  // Off screen: fly there; the details show once the vehicle streams in.
+                  flyTo(t.event.position);
+                  setSelectedId(t.event.vehicle_id);
+                }
+              }}
+            >
+              <span className={`mt-0.5 text-[11px] font-bold uppercase tracking-wider ${t.severity === "critical" ? "text-red-500" : "text-amber-500"}`}>
+                {t.severity === "critical" ? "Alert" : "Warning"}
+              </span>
+              <span className="min-w-0 flex-1 text-[13px]">
+                {describe(t.event)}
+                <span className="block text-[11px] text-muted">Click to show the vehicle</span>
+              </span>
+            </button>
+          </li>
+        ))}
+      </ol>
 
       {/* Fleet panel */}
       <aside className="panel absolute left-4 top-4 z-10 w-[min(320px,calc(100vw-2rem))] p-4">
@@ -390,56 +546,105 @@ function FleetDashboard({ session, onSignOut }: { session: DispatcherSession; on
         onClick={() => setJobsOpen((o) => !o)}
         aria-expanded={jobsOpen}
       >
-        {jobsOpen ? "Hide jobs" : `Jobs (${active.length})`}
+        {jobsOpen ? "Hide panel" : `Jobs (${active.length}) · Zones`}
       </button>
       <section
         className={`panel absolute z-10 flex-col overflow-hidden ${jobsOpen ? "flex" : "hidden"} inset-x-2 bottom-16 max-h-[60dvh] sm:inset-x-auto sm:bottom-auto sm:right-4 sm:top-4 sm:flex sm:max-h-[calc(100dvh-7rem)] sm:w-[360px]`}
-        aria-label="Jobs"
+        aria-label="Jobs and zones"
       >
-        <JobsPanel
-          mode={panel}
-          active={active}
-          recent={recent}
-          selected={shownJob}
-          draft={draft}
-          error={jobError}
-          onNewJob={() => {
-            setSelectedJobId(null);
-            setDraft({});
-            setPanel("create");
-            setJobsOpen(true);
-          }}
-          onCancelDraft={() => {
-            setDraft(null);
-            setPanel("list");
-          }}
-          onSkipDropoff={() => setDraft((d) => ({ ...d, dropoff: null }))}
-          onCreate={(fields) =>
-            run(async () => {
-              if (!draft?.pickup) return;
-              const job = await api.create({ ...fields, pickup: draft.pickup, dropoff: draft.dropoff ?? undefined });
+        <nav className="flex border-b border-line px-2 pt-2" role="tablist" aria-label="Panel">
+          {(["jobs", "zones"] as const).map((t) => (
+            <button
+              key={t}
+              role="tab"
+              aria-selected={sideTab === t}
+              onClick={() => setSideTab(t)}
+              className={`-mb-px border-b-2 px-3 pb-2 text-[13px] font-semibold ${sideTab === t ? "border-accent text-fg" : "border-transparent text-muted hover:text-fg"}`}
+            >
+              {t === "jobs" ? "Jobs" : "Zones"}
+            </button>
+          ))}
+        </nav>
+        {sideTab === "zones" ? (
+          <ZonesPanel
+            mode={zoneMode}
+            zones={zones}
+            events={zoneEvents}
+            highlightId={highlightZone}
+            corners={outline.length}
+            closed={outlineClosed}
+            error={zoneError}
+            onNew={startZone}
+            onCancel={endZone}
+            onUndo={() => (outlineClosed ? setOutlineClosed(false) : setOutline((o) => o.slice(0, -1)))}
+            onClose={() => setOutlineClosed(true)}
+            onSave={saveZone}
+            onDelete={deleteZone}
+            onFocusZone={(z) => {
+              setHighlightZone((h) => (h === z.id ? null : z.id));
+              fitZone(z);
+            }}
+            onFocusEvent={(e) => {
+              if (e.position) flyTo(e.position, 15);
+              setSelectedId(e.vehicle_id);
+              setHighlightZone(e.geofence_id);
+            }}
+          />
+        ) : (
+          <JobsPanel
+            mode={panel}
+            active={active}
+            recent={recent}
+            selected={shownJob}
+            draft={draft}
+            error={jobError}
+            onNewJob={() => {
+              setSelectedJobId(null);
+              setDraft({});
+              setPanel("create");
+              setJobsOpen(true);
+            }}
+            onCancelDraft={() => {
               setDraft(null);
-              await refreshJobs();
-              setSelectedJobId(job.id);
-              setPanel("detail");
-            })
-          }
-          onSelect={selectJob}
-          onCancelJob={(id, reason) => run(() => api.cancel(id, reason).then(refreshJobs).then(refreshSelected))}
-          loadCandidates={async (id) => {
-            try {
-              return await api.candidates(id);
-            } catch (e) {
-              setJobError(e instanceof Error ? e.message : "Couldn't load drivers.");
-              return [];
+              setPanel("list");
+            }}
+            onSkipDropoff={() => setDraft((d) => ({ ...d, dropoff: null }))}
+            onCreate={(fields) =>
+              run(async () => {
+                if (!draft?.pickup) return;
+                const job = await api.create({ ...fields, pickup: draft.pickup, dropoff: draft.dropoff ?? undefined });
+                setDraft(null);
+                await refreshJobs();
+                setSelectedJobId(job.id);
+                setPanel("detail");
+              })
             }
-          }}
-          onOffer={(jobId, vehicleId) => run(() => api.offer(jobId, vehicleId).then(refreshSelected).then(refreshJobs))}
-          onFocus={(at) => flyTo(at)}
-        />
+            onSelect={selectJob}
+            onCancelJob={(id, reason) => run(() => api.cancel(id, reason).then(refreshJobs).then(refreshSelected))}
+            loadCandidates={async (id) => {
+              try {
+                return await api.candidates(id);
+              } catch (e) {
+                setJobError(e instanceof Error ? e.message : "Couldn't load drivers.");
+                return [];
+              }
+            }}
+            onOffer={(jobId, vehicleId) => run(() => api.offer(jobId, vehicleId).then(refreshSelected).then(refreshJobs))}
+            onFocus={(at) => flyTo(at)}
+          />
+        )}
       </section>
     </div>
   );
+}
+
+/** Newest first, de-duplicated (a live push may also arrive in a fetch). */
+function mergeEvents(a: ZoneEvent[], b: ZoneEvent[]) {
+  const seen = new Set<number>();
+  return [...a, ...b]
+    .filter((e) => (seen.has(e.id) ? false : (seen.add(e.id), true)))
+    .sort((x, y) => Date.parse(y.occurred_at) - Date.parse(x.occurred_at) || y.id - x.id)
+    .slice(0, 100);
 }
 
 function Stat({ label, children, wide }: { label: string; children: React.ReactNode; wide?: boolean }) {

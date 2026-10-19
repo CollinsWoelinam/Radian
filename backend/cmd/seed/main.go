@@ -1,9 +1,10 @@
 // Command seed creates demo drivers, each assigned to a vehicle, so the driver
-// app has something to log in with. Safe to rerun.
+// app has something to log in with, plus demo zones. Safe to rerun.
 package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"os"
@@ -18,6 +19,26 @@ const (
 	demoPassword        = "radian-demo"
 	demoDispatcherEmail = "dispatch@radian.dev"
 )
+
+// Demo zones around Accra, as [lon, lat] outlines. Rough on purpose: they
+// show the feature, they are not surveyed boundaries.
+var zones = []struct {
+	name, kind string
+	outline    [][2]float64
+}{
+	{"Spintex Depot", "DEPOT", [][2]float64{
+		{-0.1235, 5.6405}, {-0.1170, 5.6405}, {-0.1170, 5.6460}, {-0.1235, 5.6460}}},
+	{"Kaneshie Depot", "DEPOT", [][2]float64{
+		{-0.2420, 5.5640}, {-0.2355, 5.5640}, {-0.2355, 5.5700}, {-0.2420, 5.5700}}},
+	{"Kotoka Airport Airside", "RESTRICTED", [][2]float64{
+		{-0.1810, 5.5920}, {-0.1590, 5.5980}, {-0.1560, 5.6110}, {-0.1700, 5.6150}, {-0.1830, 5.6050}}},
+	{"Jubilee House", "RESTRICTED", [][2]float64{
+		{-0.1935, 5.5810}, {-0.1880, 5.5810}, {-0.1880, 5.5860}, {-0.1935, 5.5860}}},
+	// Most of the simulator's area, so "left the service area" stays rare.
+	{"Greater Accra Service Area", "SERVICE_AREA", [][2]float64{
+		{-0.3050, 5.5050}, {-0.2100, 5.5300}, {-0.1400, 5.5500}, {-0.0600, 5.5900}, {-0.0320, 5.6200},
+		{-0.0320, 5.7050}, {-0.3050, 5.7050}}},
+}
 
 var demo = []struct{ name, phone, plate, kind string }{
 	{"Kwame Mensah", "0240000001", "GR 1024-26", "VAN"},
@@ -90,5 +111,24 @@ func main() {
 		os.Exit(1)
 	}
 	fmt.Printf("%-14s email %s (dashboard)\n", "Esi Asante", demoDispatcherEmail)
+
+	for _, z := range zones {
+		ring := append(z.outline, z.outline[0])
+		shape, _ := json.Marshal(map[string]any{"type": "Polygon", "coordinates": [][][2]float64{ring}})
+		// Demo zones are matched by name: rerunning resets their outline.
+		_, err = pool.Exec(ctx, `
+			WITH upd AS (
+				UPDATE geofences SET kind = $2::geofence_kind, area = ST_Multi(ST_SetSRID(ST_GeomFromGeoJSON($3), 4326))
+				WHERE name = $1::varchar RETURNING id
+			)
+			INSERT INTO geofences (name, kind, area)
+			SELECT $1::varchar, $2::geofence_kind, ST_Multi(ST_SetSRID(ST_GeomFromGeoJSON($3), 4326))
+			WHERE NOT EXISTS (SELECT 1 FROM upd)`, z.name, z.kind, shape)
+		if err != nil {
+			slog.Error("seed zone", "name", z.name, "err", err)
+			os.Exit(1)
+		}
+	}
+	fmt.Printf("%d demo zones\n", len(zones))
 	fmt.Printf("\nPassword for all demo accounts: %s\n", demoPassword)
 }

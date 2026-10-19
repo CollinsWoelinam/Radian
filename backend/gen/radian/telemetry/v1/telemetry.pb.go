@@ -140,6 +140,58 @@ func (VehicleStatus) EnumDescriptor() ([]byte, []int) {
 	return file_radian_telemetry_v1_telemetry_proto_rawDescGZIP(), []int{1}
 }
 
+type GeofenceKind int32
+
+const (
+	GeofenceKind_GEOFENCE_KIND_UNSPECIFIED  GeofenceKind = 0
+	GeofenceKind_GEOFENCE_KIND_DEPOT        GeofenceKind = 1
+	GeofenceKind_GEOFENCE_KIND_SERVICE_AREA GeofenceKind = 2
+	GeofenceKind_GEOFENCE_KIND_RESTRICTED   GeofenceKind = 3
+)
+
+// Enum value maps for GeofenceKind.
+var (
+	GeofenceKind_name = map[int32]string{
+		0: "GEOFENCE_KIND_UNSPECIFIED",
+		1: "GEOFENCE_KIND_DEPOT",
+		2: "GEOFENCE_KIND_SERVICE_AREA",
+		3: "GEOFENCE_KIND_RESTRICTED",
+	}
+	GeofenceKind_value = map[string]int32{
+		"GEOFENCE_KIND_UNSPECIFIED":  0,
+		"GEOFENCE_KIND_DEPOT":        1,
+		"GEOFENCE_KIND_SERVICE_AREA": 2,
+		"GEOFENCE_KIND_RESTRICTED":   3,
+	}
+)
+
+func (x GeofenceKind) Enum() *GeofenceKind {
+	p := new(GeofenceKind)
+	*p = x
+	return p
+}
+
+func (x GeofenceKind) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (GeofenceKind) Descriptor() protoreflect.EnumDescriptor {
+	return file_radian_telemetry_v1_telemetry_proto_enumTypes[2].Descriptor()
+}
+
+func (GeofenceKind) Type() protoreflect.EnumType {
+	return &file_radian_telemetry_v1_telemetry_proto_enumTypes[2]
+}
+
+func (x GeofenceKind) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use GeofenceKind.Descriptor instead.
+func (GeofenceKind) EnumDescriptor() ([]byte, []int) {
+	return file_radian_telemetry_v1_telemetry_proto_rawDescGZIP(), []int{2}
+}
+
 type LocationPoint struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Per-device monotonic counter; lets the server ack and the client prune its buffer.
@@ -1347,12 +1399,161 @@ func (x *JobsChanged) GetJobIds() []string {
 	return nil
 }
 
+// A vehicle crossed a zone boundary (confirmed by consecutive fixes).
+type GeofenceEvent struct {
+	state        protoimpl.MessageState `protogen:"open.v1"`
+	Id           int64                  `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
+	GeofenceId   string                 `protobuf:"bytes,2,opt,name=geofence_id,json=geofenceId,proto3" json:"geofence_id,omitempty"`
+	GeofenceName string                 `protobuf:"bytes,3,opt,name=geofence_name,json=geofenceName,proto3" json:"geofence_name,omitempty"`
+	Kind         GeofenceKind           `protobuf:"varint,4,opt,name=kind,proto3,enum=radian.telemetry.v1.GeofenceKind" json:"kind,omitempty"`
+	VehicleId    string                 `protobuf:"bytes,5,opt,name=vehicle_id,json=vehicleId,proto3" json:"vehicle_id,omitempty"`
+	LicensePlate string                 `protobuf:"bytes,6,opt,name=license_plate,json=licensePlate,proto3" json:"license_plate,omitempty"`
+	// True on entering the zone, false on leaving it.
+	Entered       bool      `protobuf:"varint,7,opt,name=entered,proto3" json:"entered,omitempty"`
+	OccurredAtMs  int64     `protobuf:"varint,8,opt,name=occurred_at_ms,json=occurredAtMs,proto3" json:"occurred_at_ms,omitempty"`
+	Position      *GeoPoint `protobuf:"bytes,9,opt,name=position,proto3" json:"position,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GeofenceEvent) Reset() {
+	*x = GeofenceEvent{}
+	mi := &file_radian_telemetry_v1_telemetry_proto_msgTypes[17]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GeofenceEvent) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GeofenceEvent) ProtoMessage() {}
+
+func (x *GeofenceEvent) ProtoReflect() protoreflect.Message {
+	mi := &file_radian_telemetry_v1_telemetry_proto_msgTypes[17]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GeofenceEvent.ProtoReflect.Descriptor instead.
+func (*GeofenceEvent) Descriptor() ([]byte, []int) {
+	return file_radian_telemetry_v1_telemetry_proto_rawDescGZIP(), []int{17}
+}
+
+func (x *GeofenceEvent) GetId() int64 {
+	if x != nil {
+		return x.Id
+	}
+	return 0
+}
+
+func (x *GeofenceEvent) GetGeofenceId() string {
+	if x != nil {
+		return x.GeofenceId
+	}
+	return ""
+}
+
+func (x *GeofenceEvent) GetGeofenceName() string {
+	if x != nil {
+		return x.GeofenceName
+	}
+	return ""
+}
+
+func (x *GeofenceEvent) GetKind() GeofenceKind {
+	if x != nil {
+		return x.Kind
+	}
+	return GeofenceKind_GEOFENCE_KIND_UNSPECIFIED
+}
+
+func (x *GeofenceEvent) GetVehicleId() string {
+	if x != nil {
+		return x.VehicleId
+	}
+	return ""
+}
+
+func (x *GeofenceEvent) GetLicensePlate() string {
+	if x != nil {
+		return x.LicensePlate
+	}
+	return ""
+}
+
+func (x *GeofenceEvent) GetEntered() bool {
+	if x != nil {
+		return x.Entered
+	}
+	return false
+}
+
+func (x *GeofenceEvent) GetOccurredAtMs() int64 {
+	if x != nil {
+		return x.OccurredAtMs
+	}
+	return 0
+}
+
+func (x *GeofenceEvent) GetPosition() *GeoPoint {
+	if x != nil {
+		return x.Position
+	}
+	return nil
+}
+
+// Zones were created or deleted; dashboards (and the geofencer) reload them.
+type GeofencesChanged struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GeofencesChanged) Reset() {
+	*x = GeofencesChanged{}
+	mi := &file_radian_telemetry_v1_telemetry_proto_msgTypes[18]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GeofencesChanged) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GeofencesChanged) ProtoMessage() {}
+
+func (x *GeofencesChanged) ProtoReflect() protoreflect.Message {
+	mi := &file_radian_telemetry_v1_telemetry_proto_msgTypes[18]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GeofencesChanged.ProtoReflect.Descriptor instead.
+func (*GeofencesChanged) Descriptor() ([]byte, []int) {
+	return file_radian_telemetry_v1_telemetry_proto_rawDescGZIP(), []int{18}
+}
+
 type DashboardServerMessage struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Types that are valid to be assigned to Payload:
 	//
 	//	*DashboardServerMessage_FleetUpdate
 	//	*DashboardServerMessage_JobsChanged
+	//	*DashboardServerMessage_GeofenceEvent
+	//	*DashboardServerMessage_GeofencesChanged
 	Payload       isDashboardServerMessage_Payload `protobuf_oneof:"payload"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -1360,7 +1561,7 @@ type DashboardServerMessage struct {
 
 func (x *DashboardServerMessage) Reset() {
 	*x = DashboardServerMessage{}
-	mi := &file_radian_telemetry_v1_telemetry_proto_msgTypes[17]
+	mi := &file_radian_telemetry_v1_telemetry_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1372,7 +1573,7 @@ func (x *DashboardServerMessage) String() string {
 func (*DashboardServerMessage) ProtoMessage() {}
 
 func (x *DashboardServerMessage) ProtoReflect() protoreflect.Message {
-	mi := &file_radian_telemetry_v1_telemetry_proto_msgTypes[17]
+	mi := &file_radian_telemetry_v1_telemetry_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1385,7 +1586,7 @@ func (x *DashboardServerMessage) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DashboardServerMessage.ProtoReflect.Descriptor instead.
 func (*DashboardServerMessage) Descriptor() ([]byte, []int) {
-	return file_radian_telemetry_v1_telemetry_proto_rawDescGZIP(), []int{17}
+	return file_radian_telemetry_v1_telemetry_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *DashboardServerMessage) GetPayload() isDashboardServerMessage_Payload {
@@ -1413,6 +1614,24 @@ func (x *DashboardServerMessage) GetJobsChanged() *JobsChanged {
 	return nil
 }
 
+func (x *DashboardServerMessage) GetGeofenceEvent() *GeofenceEvent {
+	if x != nil {
+		if x, ok := x.Payload.(*DashboardServerMessage_GeofenceEvent); ok {
+			return x.GeofenceEvent
+		}
+	}
+	return nil
+}
+
+func (x *DashboardServerMessage) GetGeofencesChanged() *GeofencesChanged {
+	if x != nil {
+		if x, ok := x.Payload.(*DashboardServerMessage_GeofencesChanged); ok {
+			return x.GeofencesChanged
+		}
+	}
+	return nil
+}
+
 type isDashboardServerMessage_Payload interface {
 	isDashboardServerMessage_Payload()
 }
@@ -1425,9 +1644,21 @@ type DashboardServerMessage_JobsChanged struct {
 	JobsChanged *JobsChanged `protobuf:"bytes,2,opt,name=jobs_changed,json=jobsChanged,proto3,oneof"`
 }
 
+type DashboardServerMessage_GeofenceEvent struct {
+	GeofenceEvent *GeofenceEvent `protobuf:"bytes,3,opt,name=geofence_event,json=geofenceEvent,proto3,oneof"`
+}
+
+type DashboardServerMessage_GeofencesChanged struct {
+	GeofencesChanged *GeofencesChanged `protobuf:"bytes,4,opt,name=geofences_changed,json=geofencesChanged,proto3,oneof"`
+}
+
 func (*DashboardServerMessage_FleetUpdate) isDashboardServerMessage_Payload() {}
 
 func (*DashboardServerMessage_JobsChanged) isDashboardServerMessage_Payload() {}
+
+func (*DashboardServerMessage_GeofenceEvent) isDashboardServerMessage_Payload() {}
+
+func (*DashboardServerMessage_GeofencesChanged) isDashboardServerMessage_Payload() {}
 
 var File_radian_telemetry_v1_telemetry_proto protoreflect.FileDescriptor
 
@@ -1532,10 +1763,25 @@ const file_radian_telemetry_v1_telemetry_proto_rawDesc = "" +
 	"\vis_snapshot\x18\x04 \x01(\bR\n" +
 	"isSnapshot\"&\n" +
 	"\vJobsChanged\x12\x17\n" +
-	"\ajob_ids\x18\x01 \x03(\tR\x06jobIds\"\xb1\x01\n" +
+	"\ajob_ids\x18\x01 \x03(\tR\x06jobIds\"\xdb\x02\n" +
+	"\rGeofenceEvent\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\x03R\x02id\x12\x1f\n" +
+	"\vgeofence_id\x18\x02 \x01(\tR\n" +
+	"geofenceId\x12#\n" +
+	"\rgeofence_name\x18\x03 \x01(\tR\fgeofenceName\x125\n" +
+	"\x04kind\x18\x04 \x01(\x0e2!.radian.telemetry.v1.GeofenceKindR\x04kind\x12\x1d\n" +
+	"\n" +
+	"vehicle_id\x18\x05 \x01(\tR\tvehicleId\x12#\n" +
+	"\rlicense_plate\x18\x06 \x01(\tR\flicensePlate\x12\x18\n" +
+	"\aentered\x18\a \x01(\bR\aentered\x12$\n" +
+	"\x0eoccurred_at_ms\x18\b \x01(\x03R\foccurredAtMs\x129\n" +
+	"\bposition\x18\t \x01(\v2\x1d.radian.telemetry.v1.GeoPointR\bposition\"\x12\n" +
+	"\x10GeofencesChanged\"\xd4\x02\n" +
 	"\x16DashboardServerMessage\x12E\n" +
 	"\ffleet_update\x18\x01 \x01(\v2 .radian.telemetry.v1.FleetUpdateH\x00R\vfleetUpdate\x12E\n" +
-	"\fjobs_changed\x18\x02 \x01(\v2 .radian.telemetry.v1.JobsChangedH\x00R\vjobsChangedB\t\n" +
+	"\fjobs_changed\x18\x02 \x01(\v2 .radian.telemetry.v1.JobsChangedH\x00R\vjobsChanged\x12K\n" +
+	"\x0egeofence_event\x18\x03 \x01(\v2\".radian.telemetry.v1.GeofenceEventH\x00R\rgeofenceEvent\x12T\n" +
+	"\x11geofences_changed\x18\x04 \x01(\v2%.radian.telemetry.v1.GeofencesChangedH\x00R\x10geofencesChangedB\t\n" +
 	"\apayload*\xe5\x01\n" +
 	"\tJobStatus\x12\x1a\n" +
 	"\x16JOB_STATUS_UNSPECIFIED\x10\x00\x12\x16\n" +
@@ -1551,7 +1797,12 @@ const file_radian_telemetry_v1_telemetry_proto_rawDesc = "" +
 	"\x16VEHICLE_STATUS_OFFLINE\x10\x01\x12\x17\n" +
 	"\x13VEHICLE_STATUS_IDLE\x10\x02\x12\x1b\n" +
 	"\x17VEHICLE_STATUS_EN_ROUTE\x10\x03\x12\x19\n" +
-	"\x15VEHICLE_STATUS_ON_JOB\x10\x04BOZMgithub.com/CollinsWoelinam/Radian/backend/gen/radian/telemetry/v1;telemetryv1b\x06proto3"
+	"\x15VEHICLE_STATUS_ON_JOB\x10\x04*\x84\x01\n" +
+	"\fGeofenceKind\x12\x1d\n" +
+	"\x19GEOFENCE_KIND_UNSPECIFIED\x10\x00\x12\x17\n" +
+	"\x13GEOFENCE_KIND_DEPOT\x10\x01\x12\x1e\n" +
+	"\x1aGEOFENCE_KIND_SERVICE_AREA\x10\x02\x12\x1c\n" +
+	"\x18GEOFENCE_KIND_RESTRICTED\x10\x03BOZMgithub.com/CollinsWoelinam/Radian/backend/gen/radian/telemetry/v1;telemetryv1b\x06proto3"
 
 var (
 	file_radian_telemetry_v1_telemetry_proto_rawDescOnce sync.Once
@@ -1565,53 +1816,60 @@ func file_radian_telemetry_v1_telemetry_proto_rawDescGZIP() []byte {
 	return file_radian_telemetry_v1_telemetry_proto_rawDescData
 }
 
-var file_radian_telemetry_v1_telemetry_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
-var file_radian_telemetry_v1_telemetry_proto_msgTypes = make([]protoimpl.MessageInfo, 18)
+var file_radian_telemetry_v1_telemetry_proto_enumTypes = make([]protoimpl.EnumInfo, 3)
+var file_radian_telemetry_v1_telemetry_proto_msgTypes = make([]protoimpl.MessageInfo, 20)
 var file_radian_telemetry_v1_telemetry_proto_goTypes = []any{
 	(JobStatus)(0),                 // 0: radian.telemetry.v1.JobStatus
 	(VehicleStatus)(0),             // 1: radian.telemetry.v1.VehicleStatus
-	(*LocationPoint)(nil),          // 2: radian.telemetry.v1.LocationPoint
-	(*TelemetryBatch)(nil),         // 3: radian.telemetry.v1.TelemetryBatch
-	(*Heartbeat)(nil),              // 4: radian.telemetry.v1.Heartbeat
-	(*ClientMessage)(nil),          // 5: radian.telemetry.v1.ClientMessage
-	(*BatchAck)(nil),               // 6: radian.telemetry.v1.BatchAck
-	(*TrackingConfig)(nil),         // 7: radian.telemetry.v1.TrackingConfig
-	(*ServerMessage)(nil),          // 8: radian.telemetry.v1.ServerMessage
-	(*GeoPoint)(nil),               // 9: radian.telemetry.v1.GeoPoint
-	(*JobOffer)(nil),               // 10: radian.telemetry.v1.JobOffer
-	(*JobCancelled)(nil),           // 11: radian.telemetry.v1.JobCancelled
-	(*JobStatusUpdate)(nil),        // 12: radian.telemetry.v1.JobStatusUpdate
-	(*BoundingBox)(nil),            // 13: radian.telemetry.v1.BoundingBox
-	(*DashboardSubscribe)(nil),     // 14: radian.telemetry.v1.DashboardSubscribe
-	(*DashboardClientMessage)(nil), // 15: radian.telemetry.v1.DashboardClientMessage
-	(*VehicleDelta)(nil),           // 16: radian.telemetry.v1.VehicleDelta
-	(*FleetUpdate)(nil),            // 17: radian.telemetry.v1.FleetUpdate
-	(*JobsChanged)(nil),            // 18: radian.telemetry.v1.JobsChanged
-	(*DashboardServerMessage)(nil), // 19: radian.telemetry.v1.DashboardServerMessage
+	(GeofenceKind)(0),              // 2: radian.telemetry.v1.GeofenceKind
+	(*LocationPoint)(nil),          // 3: radian.telemetry.v1.LocationPoint
+	(*TelemetryBatch)(nil),         // 4: radian.telemetry.v1.TelemetryBatch
+	(*Heartbeat)(nil),              // 5: radian.telemetry.v1.Heartbeat
+	(*ClientMessage)(nil),          // 6: radian.telemetry.v1.ClientMessage
+	(*BatchAck)(nil),               // 7: radian.telemetry.v1.BatchAck
+	(*TrackingConfig)(nil),         // 8: radian.telemetry.v1.TrackingConfig
+	(*ServerMessage)(nil),          // 9: radian.telemetry.v1.ServerMessage
+	(*GeoPoint)(nil),               // 10: radian.telemetry.v1.GeoPoint
+	(*JobOffer)(nil),               // 11: radian.telemetry.v1.JobOffer
+	(*JobCancelled)(nil),           // 12: radian.telemetry.v1.JobCancelled
+	(*JobStatusUpdate)(nil),        // 13: radian.telemetry.v1.JobStatusUpdate
+	(*BoundingBox)(nil),            // 14: radian.telemetry.v1.BoundingBox
+	(*DashboardSubscribe)(nil),     // 15: radian.telemetry.v1.DashboardSubscribe
+	(*DashboardClientMessage)(nil), // 16: radian.telemetry.v1.DashboardClientMessage
+	(*VehicleDelta)(nil),           // 17: radian.telemetry.v1.VehicleDelta
+	(*FleetUpdate)(nil),            // 18: radian.telemetry.v1.FleetUpdate
+	(*JobsChanged)(nil),            // 19: radian.telemetry.v1.JobsChanged
+	(*GeofenceEvent)(nil),          // 20: radian.telemetry.v1.GeofenceEvent
+	(*GeofencesChanged)(nil),       // 21: radian.telemetry.v1.GeofencesChanged
+	(*DashboardServerMessage)(nil), // 22: radian.telemetry.v1.DashboardServerMessage
 }
 var file_radian_telemetry_v1_telemetry_proto_depIdxs = []int32{
-	2,  // 0: radian.telemetry.v1.TelemetryBatch.points:type_name -> radian.telemetry.v1.LocationPoint
-	3,  // 1: radian.telemetry.v1.ClientMessage.batch:type_name -> radian.telemetry.v1.TelemetryBatch
-	4,  // 2: radian.telemetry.v1.ClientMessage.heartbeat:type_name -> radian.telemetry.v1.Heartbeat
-	12, // 3: radian.telemetry.v1.ClientMessage.job_status:type_name -> radian.telemetry.v1.JobStatusUpdate
-	6,  // 4: radian.telemetry.v1.ServerMessage.ack:type_name -> radian.telemetry.v1.BatchAck
-	7,  // 5: radian.telemetry.v1.ServerMessage.config:type_name -> radian.telemetry.v1.TrackingConfig
-	10, // 6: radian.telemetry.v1.ServerMessage.job_offer:type_name -> radian.telemetry.v1.JobOffer
-	11, // 7: radian.telemetry.v1.ServerMessage.job_cancelled:type_name -> radian.telemetry.v1.JobCancelled
-	9,  // 8: radian.telemetry.v1.JobOffer.pickup:type_name -> radian.telemetry.v1.GeoPoint
-	9,  // 9: radian.telemetry.v1.JobOffer.dropoff:type_name -> radian.telemetry.v1.GeoPoint
+	3,  // 0: radian.telemetry.v1.TelemetryBatch.points:type_name -> radian.telemetry.v1.LocationPoint
+	4,  // 1: radian.telemetry.v1.ClientMessage.batch:type_name -> radian.telemetry.v1.TelemetryBatch
+	5,  // 2: radian.telemetry.v1.ClientMessage.heartbeat:type_name -> radian.telemetry.v1.Heartbeat
+	13, // 3: radian.telemetry.v1.ClientMessage.job_status:type_name -> radian.telemetry.v1.JobStatusUpdate
+	7,  // 4: radian.telemetry.v1.ServerMessage.ack:type_name -> radian.telemetry.v1.BatchAck
+	8,  // 5: radian.telemetry.v1.ServerMessage.config:type_name -> radian.telemetry.v1.TrackingConfig
+	11, // 6: radian.telemetry.v1.ServerMessage.job_offer:type_name -> radian.telemetry.v1.JobOffer
+	12, // 7: radian.telemetry.v1.ServerMessage.job_cancelled:type_name -> radian.telemetry.v1.JobCancelled
+	10, // 8: radian.telemetry.v1.JobOffer.pickup:type_name -> radian.telemetry.v1.GeoPoint
+	10, // 9: radian.telemetry.v1.JobOffer.dropoff:type_name -> radian.telemetry.v1.GeoPoint
 	0,  // 10: radian.telemetry.v1.JobStatusUpdate.status:type_name -> radian.telemetry.v1.JobStatus
-	13, // 11: radian.telemetry.v1.DashboardSubscribe.viewport:type_name -> radian.telemetry.v1.BoundingBox
-	14, // 12: radian.telemetry.v1.DashboardClientMessage.subscribe:type_name -> radian.telemetry.v1.DashboardSubscribe
+	14, // 11: radian.telemetry.v1.DashboardSubscribe.viewport:type_name -> radian.telemetry.v1.BoundingBox
+	15, // 12: radian.telemetry.v1.DashboardClientMessage.subscribe:type_name -> radian.telemetry.v1.DashboardSubscribe
 	1,  // 13: radian.telemetry.v1.VehicleDelta.status:type_name -> radian.telemetry.v1.VehicleStatus
-	16, // 14: radian.telemetry.v1.FleetUpdate.deltas:type_name -> radian.telemetry.v1.VehicleDelta
-	17, // 15: radian.telemetry.v1.DashboardServerMessage.fleet_update:type_name -> radian.telemetry.v1.FleetUpdate
-	18, // 16: radian.telemetry.v1.DashboardServerMessage.jobs_changed:type_name -> radian.telemetry.v1.JobsChanged
-	17, // [17:17] is the sub-list for method output_type
-	17, // [17:17] is the sub-list for method input_type
-	17, // [17:17] is the sub-list for extension type_name
-	17, // [17:17] is the sub-list for extension extendee
-	0,  // [0:17] is the sub-list for field type_name
+	17, // 14: radian.telemetry.v1.FleetUpdate.deltas:type_name -> radian.telemetry.v1.VehicleDelta
+	2,  // 15: radian.telemetry.v1.GeofenceEvent.kind:type_name -> radian.telemetry.v1.GeofenceKind
+	10, // 16: radian.telemetry.v1.GeofenceEvent.position:type_name -> radian.telemetry.v1.GeoPoint
+	18, // 17: radian.telemetry.v1.DashboardServerMessage.fleet_update:type_name -> radian.telemetry.v1.FleetUpdate
+	19, // 18: radian.telemetry.v1.DashboardServerMessage.jobs_changed:type_name -> radian.telemetry.v1.JobsChanged
+	20, // 19: radian.telemetry.v1.DashboardServerMessage.geofence_event:type_name -> radian.telemetry.v1.GeofenceEvent
+	21, // 20: radian.telemetry.v1.DashboardServerMessage.geofences_changed:type_name -> radian.telemetry.v1.GeofencesChanged
+	21, // [21:21] is the sub-list for method output_type
+	21, // [21:21] is the sub-list for method input_type
+	21, // [21:21] is the sub-list for extension type_name
+	21, // [21:21] is the sub-list for extension extendee
+	0,  // [0:21] is the sub-list for field type_name
 }
 
 func init() { file_radian_telemetry_v1_telemetry_proto_init() }
@@ -1635,17 +1893,19 @@ func file_radian_telemetry_v1_telemetry_proto_init() {
 	file_radian_telemetry_v1_telemetry_proto_msgTypes[13].OneofWrappers = []any{
 		(*DashboardClientMessage_Subscribe)(nil),
 	}
-	file_radian_telemetry_v1_telemetry_proto_msgTypes[17].OneofWrappers = []any{
+	file_radian_telemetry_v1_telemetry_proto_msgTypes[19].OneofWrappers = []any{
 		(*DashboardServerMessage_FleetUpdate)(nil),
 		(*DashboardServerMessage_JobsChanged)(nil),
+		(*DashboardServerMessage_GeofenceEvent)(nil),
+		(*DashboardServerMessage_GeofencesChanged)(nil),
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_radian_telemetry_v1_telemetry_proto_rawDesc), len(file_radian_telemetry_v1_telemetry_proto_rawDesc)),
-			NumEnums:      2,
-			NumMessages:   18,
+			NumEnums:      3,
+			NumMessages:   20,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
