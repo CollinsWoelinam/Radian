@@ -1,12 +1,14 @@
 #!/usr/bin/env bash
 # End-to-end shift test on a running Android emulator against the local backend.
-# Usage: tool/e2e_android.sh [emulator-serial]   (backend must be running: make up ingest persister api seed)
+# Usage: tool/e2e_android.sh [serial]   (backend must be running: make up ingest persister api seed)
+# Emulator: GPS is simulated along a Ring Road loop. Physical phone: real GPS,
+# and set RADIAN_HOST to this machine's LAN IP so the phone can reach it.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
 SDK="${ANDROID_HOME:-$HOME/Library/Android/sdk}"
 ADB="$SDK/platform-tools/adb"
-SERIAL="${1:-$("$ADB" devices | awk '/^emulator-/{print $1; exit}')}"
+SERIAL="${1:-$("$ADB" devices | awk 'NR>1 && $2=="device" {print $1; exit}')}"
 PKG=app.radian.radian_driver
 [ -n "$SERIAL" ] || { echo "No running emulator. Start one: flutter emulators --launch <id>"; exit 1; }
 
@@ -39,22 +41,25 @@ drive() {
     sleep 1
   done
 }
-( while kill -0 "$PARENT" 2>/dev/null; do drive; done ) &
-DRIVER=$!
+DRIVER=""
+if [[ "$SERIAL" == emulator-* ]]; then
+  ( while kill -0 "$PARENT" 2>/dev/null; do drive; done ) &
+  DRIVER=$!
+fi
 
-trap 'kill $DRIVER 2>/dev/null' EXIT
+trap '[ -n "$DRIVER" ] && kill $DRIVER 2>/dev/null' EXIT
 
 # Grant runtime permissions up front so no system dialog blocks the test.
 # flutter test reinstalls with `adb install -r`, which keeps them. (Granting
 # while the app is starting can restart its activity, so do it once, here.)
-if ! "$ADB" -s "$SERIAL" shell pm list packages | grep -q "$PKG"; then
+if ! "$ADB" -s "$SERIAL" shell pm list packages --user current | grep -q "$PKG"; then
   APK=build/app/outputs/flutter-apk/app-debug.apk
-  [ -f "$APK" ] || LANG=en_US.UTF-8 flutter build apk --debug
+  [ -f "$APK" ] || LANG=en_US.UTF-8 flutter build apk --debug ${RADIAN_HOST:+--dart-define=RADIAN_HOST=$RADIAN_HOST}
   "$ADB" -s "$SERIAL" install -r "$APK" >/dev/null
 fi
 for p in ACCESS_FINE_LOCATION ACCESS_COARSE_LOCATION POST_NOTIFICATIONS; do
-  "$ADB" -s "$SERIAL" shell pm grant $PKG android.permission.$p
+  "$ADB" -s "$SERIAL" shell pm grant --user current $PKG android.permission.$p
 done
 "$ADB" -s "$SERIAL" shell am force-stop $PKG
 
-LANG=en_US.UTF-8 flutter test integration_test/shift_test.dart -d "$SERIAL"
+LANG=en_US.UTF-8 flutter test integration_test/shift_test.dart -d "$SERIAL" ${RADIAN_HOST:+--dart-define=RADIAN_HOST=$RADIAN_HOST}

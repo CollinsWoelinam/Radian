@@ -7,6 +7,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
 import 'package:integration_test/integration_test.dart';
 import 'package:radian_driver/auth/session.dart';
@@ -75,14 +76,9 @@ void main() {
     for (var i = 0; i < 24; i++) {
       await t.pump(const Duration(milliseconds: 250));
     }
-    final coords = find.textContaining(RegExp(r'^5\.\d+, -0\.\d+$'));
-    double lat = 5.57, lon = -0.21;
-    if (coords.evaluate().isNotEmpty) {
-      final parts = (coords.evaluate().first.widget as Text).data!.split(', ');
-      lat = double.parse(parts[0]);
-      lon = double.parse(parts[1]);
-    }
-    await createJobNear(lat, lon);
+    // Put the job next to wherever this device actually is.
+    final here = await Geolocator.getLastKnownPosition() ?? await Geolocator.getCurrentPosition();
+    await createJobNear(here.latitude, here.longitude);
 
     await pumpUntil(t, find.text('Accept'), timeout: const Duration(seconds: 80));
     await hold(t, '10-job-offer');

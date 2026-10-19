@@ -27,6 +27,8 @@ type Hub struct {
 	dirty    map[string]struct{}
 	// Status assigned by dispatch (e.g. ON_JOB); motion decides the rest.
 	assigned map[string]pb.VehicleStatus
+	// Last time each phone was heard from, Unix ms (heartbeats included).
+	presence map[string]int64
 	clients  map[*client]struct{}
 }
 
@@ -36,6 +38,7 @@ func NewHub(offlineAfter time.Duration) *Hub {
 		vehicles:     make(map[string]*pb.VehicleDelta),
 		dirty:        make(map[string]struct{}),
 		assigned:     make(map[string]pb.VehicleStatus),
+		presence:     make(map[string]int64),
 		clients:      make(map[*client]struct{}),
 	}
 }
@@ -73,8 +76,18 @@ func (h *Hub) SetAssigned(assigned map[string]pb.VehicleStatus) {
 	h.assigned = assigned
 }
 
+// SetPresence replaces the last-heard-from times (refreshed from Redis).
+func (h *Hub) SetPresence(p map[string]int64) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.presence = p
+}
+
 func (h *Hub) statusFor(id string, d *pb.VehicleDelta, now time.Time) pb.VehicleStatus {
-	if now.Sub(time.UnixMilli(d.RecordedAtMs)) > h.offlineAfter {
+	// Offline only when neither a fix nor a heartbeat arrived recently: a
+	// phone indoors may be online with no usable GPS.
+	lastHeard := max(d.RecordedAtMs, h.presence[id])
+	if now.Sub(time.UnixMilli(lastHeard)) > h.offlineAfter {
 		return pb.VehicleStatus_VEHICLE_STATUS_OFFLINE
 	}
 	if s, ok := h.assigned[id]; ok {

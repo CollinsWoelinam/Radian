@@ -63,3 +63,21 @@ double bearingDeg(double lat1, double lon1, double lat2, double lon2) {
       math.sin(rad(lat1)) * math.cos(rad(lat2)) * math.cos(rad(lon2 - lon1));
   return (math.atan2(y, x) * 180 / math.pi + 360) % 360;
 }
+
+/// Distance to add to a shift's total when moving from [prev] to [f].
+///
+/// GPS jitter on a parked phone produces a stream of small "moves" (indoors,
+/// 25-30 m jumps while reporting ±11 m); counting them credits a stationary
+/// driver with kilometres. When the fix carries a speed (real phones measure
+/// it independently of position), only count steps taken while moving, plus
+/// large jumps that catch up after a signal gap. Without a speed, require the
+/// jump to exceed both fixes' error. Impossible jumps are never counted.
+double drivenDistanceM(Fix? prev, Fix f, {double movingKmh = 5, double maxPlausibleKmh = 250, double catchUpM = 100}) {
+  if (prev == null) return 0;
+  final d = fixDistanceM(prev, f);
+  final secs = f.recordedAt.difference(prev.recordedAt).inMilliseconds / 1000;
+  if (secs <= 0 || d / secs * 3.6 > maxPlausibleKmh) return 0;
+  final speed = f.speedKmh;
+  if (speed != null) return speed >= movingKmh || d > catchUpM ? d : 0;
+  return d > (prev.accuracyM ?? 10) + (f.accuracyM ?? 10) ? d : 0;
+}

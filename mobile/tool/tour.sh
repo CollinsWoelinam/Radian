@@ -4,7 +4,7 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 PLATFORM=$1 DEVICE=$2 TEST=${3:-tour_test}
-OUT="screenshots/$PLATFORM"; mkdir -p "$OUT"
+OUT="screenshots/${SHOTS_DIR:-$PLATFORM}"; mkdir -p "$OUT"
 ADB="${ANDROID_HOME:-$HOME/Library/Android/sdk}/platform-tools/adb"
 
 shot() {

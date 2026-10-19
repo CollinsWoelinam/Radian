@@ -5,6 +5,7 @@ import 'package:radian_driver/tracking/filter.dart';
 import 'package:radian_driver/tracking/fix.dart';
 import 'package:radian_driver/tracking/motion.dart';
 import 'package:radian_driver/tracking/point_buffer.dart';
+import 'package:radian_driver/tracking/speed.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 final t0 = DateTime.utc(2026, 10, 13, 9);
@@ -67,6 +68,67 @@ void main() {
       f.check(at(0, kmh: 120));
       // 0.003° ≈ 333 m in 10 s = 120 km/h
       expect(f.check(at(10, dLat: 0.003, kmh: 120)), FilterDecision.accept);
+    });
+  });
+
+  group('SpeedEstimator', () {
+    // 0.0001° latitude ≈ 11 m
+    ({double? speedKmh, double? headingDeg}) feed(SpeedEstimator e, int ms, double dLat,
+            {double acc = 10, double speed = 0, double speedAcc = 0, double heading = -1}) =>
+        e.estimate(
+          lat: 5.55 + dLat,
+          lon: -0.2,
+          at: t0.add(Duration(milliseconds: ms)),
+          accuracyM: acc,
+          speedMps: speed,
+          speedAccuracyMps: speedAcc,
+          headingDeg: heading,
+        );
+
+    test('indoor jitter on a parked phone stays near zero', () {
+      final e = SpeedEstimator();
+      feed(e, 0, 0, acc: 12);
+      // 25 m jumps every second, within the two fixes' combined error.
+      for (var i = 1; i <= 6; i++) {
+        final r = feed(e, i * 1000, (i.isOdd ? 0.00022 : 0), acc: 12);
+        expect(r.speedKmh ?? 0, lessThan(5), reason: 'fix $i');
+      }
+    });
+
+    test("trusts the phone's measured speed, including zero", () {
+      final e = SpeedEstimator();
+      feed(e, 0, 0);
+      expect(feed(e, 3000, 0.0005, speed: 0, speedAcc: 0.3).speedKmh, 0);
+      final moving = feed(e, 4000, 0.0006, speed: 12.5, speedAcc: 0.4, heading: 90);
+      expect(moving.speedKmh, closeTo(45, 0.1));
+      expect(moving.headingDeg, 90);
+    });
+
+    test('derives speed when the source reports none (emulator feed)', () {
+      final e = SpeedEstimator();
+      feed(e, 0, 0, acc: 5);
+      // 25 m north every 2 s = 45 km/h, well beyond 10 m combined error.
+      final r = feed(e, 2000, 0.000225, acc: 5);
+      expect(r.speedKmh, closeTo(45, 2));
+      expect(r.headingDeg, closeTo(0, 1));
+    });
+  });
+
+  group('drivenDistanceM', () {
+    test('parked jitter adds nothing; real driving adds the distance', () {
+      final parked = at(0, kmh: 1, acc: 12);
+      expect(drivenDistanceM(parked, at(1, dLat: 0.0002, kmh: 2, acc: 12)), 0); // 22 m jitter
+      // Indoors: a 30 m jump while reporting ±11 m and measured speed 0.
+      expect(drivenDistanceM(at(0, kmh: 0, acc: 11), at(1, dLat: 0.00027, kmh: 0, acc: 11)), 0);
+      // No speed available (some providers): needs to beat the combined error.
+      expect(drivenDistanceM(at(0, acc: 5), at(3, dLat: 0.0003, acc: 5)), closeTo(33, 1));
+      final driving = drivenDistanceM(at(0, kmh: 40, acc: 8), at(2, dLat: 0.0002, kmh: 40, acc: 8));
+      expect(driving, closeTo(22, 1));
+    });
+
+    test('a confirmed relocation is not counted as driven', () {
+      final far = Fix(lat: 37.7858, lon: -122.4064, recordedAt: t0.add(const Duration(seconds: 60)), accuracyM: 5);
+      expect(drivenDistanceM(at(0, kmh: 40), far), 0);
     });
   });
 

@@ -25,3 +25,9 @@ const (
 
 // DeviceChannel carries ServerMessages for one vehicle's phone.
 func DeviceChannel(vehicleID string) string { return "dispatch:device:" + vehicleID }
+
+// PresenceKey is a hash of vehicle ID -> last time (Unix ms) its phone was
+// heard from (any message, including heartbeats). Being online is separate
+// from having a good GPS fix: a phone indoors may send heartbeats but no
+// usable positions.
+const PresenceKey = "fleet:presence"

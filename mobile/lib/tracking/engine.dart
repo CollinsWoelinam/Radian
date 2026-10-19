@@ -10,6 +10,7 @@ import 'filter.dart';
 import 'fix.dart';
 import 'motion.dart';
 import 'point_buffer.dart';
+import 'speed.dart';
 import 'status.dart';
 import 'uplink.dart';
 
@@ -128,19 +129,38 @@ class TrackingEngine {
         }
       },
     );
-    if (parked) {
-      // The low-power stream may stay silent while parked; take an accurate
-      // fix every minute so the dispatcher still sees a live vehicle and we
-      // notice when it pulls away.
-      _keepAlive = Timer.periodic(const Duration(minutes: 1), (_) async {
-        try {
-          final p = await Geolocator.getCurrentPosition(
-            locationSettings: const LocationSettings(accuracy: LocationAccuracy.high, timeLimit: Duration(seconds: 20)),
-          );
-          _onFix(_toFix(p));
-        } catch (_) {}
-      });
-    }
+    _startWatchdog();
+  }
+
+  DateTime? _lastFixReceivedAt;
+  bool _watchdogBusy = false;
+
+  /// Requests a fix whenever the stream has gone quiet. A still phone may get
+  /// no stream updates at all (parked low-power mode, or an OS that holds
+  /// updates while nothing changes); without this the dispatcher would see a
+  /// live, on-shift vehicle drop off the map as "offline".
+  void _startWatchdog() {
+    _keepAlive?.cancel();
+    _keepAlive = Timer.periodic(const Duration(seconds: 10), (_) async {
+      final quiet = _motion.mode == MotionMode.parked ? const Duration(seconds: 60) : const Duration(seconds: 30);
+      final last = _lastFixReceivedAt;
+      if (_watchdogBusy || (last != null && DateTime.now().difference(last) < quiet)) return;
+      _watchdogBusy = true;
+      try {
+        final p = await Geolocator.getCurrentPosition(
+          locationSettings: LocationSettings(
+            accuracy: LocationAccuracy.high,
+            timeLimit: const Duration(seconds: 20),
+          ),
+        );
+        _log('watchdog fix after ${last == null ? '-' : DateTime.now().difference(last).inSeconds}s of silence');
+        _onFix(_toFix(p));
+      } catch (e) {
+        _log('watchdog fix failed: $e');
+      } finally {
+        _watchdogBusy = false;
+      }
+    });
   }
 
   bool _useLocationManager = false;
@@ -160,7 +180,9 @@ class TrackingEngine {
 
   LocationSettings _settings(bool parked) {
     final accuracy = parked ? LocationAccuracy.medium : LocationAccuracy.bestForNavigation;
-    final distance = parked ? 50 : 5;
+    // No OS-level distance filter while moving: a still phone would get no
+    // updates at all. Our own LocationFilter drops parked duplicates.
+    final distance = parked ? 50 : 0;
     if (Platform.isAndroid) {
       return AndroidSettings(
         forceLocationManager: _useLocationManager,
@@ -182,45 +204,33 @@ class TrackingEngine {
     return LocationSettings(accuracy: accuracy, distanceFilter: distance);
   }
 
-  // Reference fix for deriving speed; replaced only once >= 1 s has passed so
-  // high-rate sources (fixes every few hundred ms) still yield a speed.
-  Fix? _speedRef;
+  final _speed = SpeedEstimator(maxPlausibleKmh: _maxPlausibleKmh);
 
   Fix _toFix(Position p) {
-    // Trust the platform's speed only above walking pace: some providers
-    // (emulator GPS, network fixes) report ~0 even while moving.
-    var speedKmh = p.speed > 0.5 && p.speed * 3.6 <= _maxPlausibleKmh ? p.speed * 3.6 : null;
-    double? heading = p.heading >= 0 && p.speed > 0.5 ? p.heading : null;
-    final accurate = p.accuracy > 0 && p.accuracy <= 25;
-    final ref = _speedRef;
-    final dt = ref == null ? 0.0 : p.timestamp.difference(ref.recordedAt).inMilliseconds / 1000;
-
-    // Otherwise derive it from the reference fix when both are accurate.
-    if (speedKmh == null && ref != null && accurate && dt >= 1 && dt <= 30) {
-      final d = distanceM(ref.lat, ref.lon, p.latitude, p.longitude);
-      final derived = d / dt * 3.6;
-      if (derived <= _maxPlausibleKmh) {
-        speedKmh = derived;
-        if (d > 5) heading = bearingDeg(ref.lat, ref.lon, p.latitude, p.longitude);
-      }
-    }
-
-    final f = Fix(
+    final est = _speed.estimate(
+      lat: p.latitude,
+      lon: p.longitude,
+      at: p.timestamp,
+      accuracyM: p.accuracy,
+      speedMps: p.speed,
+      speedAccuracyMps: p.speedAccuracy,
+      headingDeg: p.heading,
+    );
+    return Fix(
       lat: p.latitude,
       lon: p.longitude,
       recordedAt: p.timestamp,
-      speedKmh: speedKmh ?? (p.speed >= 0 && p.speed <= 0.5 ? p.speed * 3.6 : null),
-      headingDeg: heading,
+      speedKmh: est.speedKmh,
+      headingDeg: est.headingDeg,
       accuracyM: p.accuracy > 0 ? p.accuracy : null,
       altitudeM: p.altitude != 0 ? p.altitude : null,
     );
-    if (accurate && (ref == null || dt >= 1 || dt < 0)) _speedRef = f;
-    return f;
   }
 
   int _fixes = 0;
 
   Future<void> _onFix(Fix f) async {
+    _lastFixReceivedAt = DateTime.now();
     if (_fixes++ % 30 == 0) _log('fix #$_fixes acc=${f.accuracyM?.round()}m speed=${f.speedKmh?.round()}km/h');
 
     final decision = _filter.check(f);
@@ -245,19 +255,9 @@ class TrackingEngine {
     await buffer.add(f.toPoint(seq: 0, batteryPct: _batteryPct));
     _emit(current.copyWith(
       queued: current.queued + 1,
-      distanceM: current.distanceM + _drivenM(prev, f),
+      distanceM: current.distanceM + drivenDistanceM(prev, f, maxPlausibleKmh: _maxPlausibleKmh),
     ));
     _flush();
-  }
-
-  /// Distance to add to the shift total. A confirmed relocation (the phone
-  /// was off while the vehicle moved) isn't counted as driven.
-  double _drivenM(Fix? prev, Fix f) {
-    if (prev == null) return 0;
-    final d = fixDistanceM(prev, f);
-    final secs = f.recordedAt.difference(prev.recordedAt).inMilliseconds / 1000;
-    if (secs <= 0 || d / secs * 3.6 > _maxPlausibleKmh) return 0;
-    return d;
   }
 
   // --- Upload ---------------------------------------------------------------

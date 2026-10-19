@@ -630,7 +630,8 @@ class _ShiftStats extends StatelessWidget {
         _Tile(
           icon: Icons.speed,
           label: 'Speed',
-          value: s.speedKmh == null ? '—' : '${s.speedKmh!.round()} km/h',
+          // Below walking-to-driving pace it's GPS noise, not motion.
+          value: s.speedKmh == null ? '—' : '${s.speedKmh! < 5 ? 0 : s.speedKmh!.round()} km/h',
           detail: s.mode == MotionMode.parked
               ? 'Parked · saving battery'
               : (s.speedKmh ?? 0) >= 5

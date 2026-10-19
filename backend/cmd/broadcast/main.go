@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -97,6 +98,9 @@ func main() {
 	go a.every(ctx, 10*time.Second, func(time.Time) {
 		if err := a.refreshAssigned(ctx); err != nil && ctx.Err() == nil {
 			log.Warn("refresh vehicle statuses", "err", err)
+		}
+		if err := a.refreshPresence(ctx); err != nil && ctx.Err() == nil {
+			log.Warn("refresh presence", "err", err)
 		}
 	})
 
@@ -309,6 +313,21 @@ func (a *app) refreshAssigned(ctx context.Context) error {
 		return err
 	}
 	a.hub.SetAssigned(assigned)
+	return nil
+}
+
+func (a *app) refreshPresence(ctx context.Context) error {
+	raw, err := a.rdb.HGetAll(ctx, stream.PresenceKey).Result()
+	if err != nil {
+		return err
+	}
+	p := make(map[string]int64, len(raw))
+	for id, v := range raw {
+		if ms, err := strconv.ParseInt(v, 10, 64); err == nil {
+			p[id] = ms
+		}
+	}
+	a.hub.SetPresence(p)
 	return nil
 }
 

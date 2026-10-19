@@ -52,6 +52,19 @@ type Server struct {
 type session struct {
 	vehicleID string
 	conn      *websocket.Conn
+	seenAt    time.Time // last presence write, to throttle Redis writes
+}
+
+// markSeen records that the phone is online, at most every 10 s.
+func (s *Server) markSeen(ctx context.Context, sess *session) {
+	now := time.Now()
+	if now.Sub(sess.seenAt) < 10*time.Second {
+		return
+	}
+	sess.seenAt = now
+	if err := s.rdb.HSet(ctx, stream.PresenceKey, sess.vehicleID, now.UnixMilli()).Err(); err != nil {
+		s.log.Warn("presence", "err", err)
+	}
 }
 
 func (s *Server) handleWS(w http.ResponseWriter, r *http.Request) {
@@ -103,6 +116,7 @@ func (s *Server) handleWS(w http.ResponseWriter, r *http.Request) {
 			conn.Close(websocket.StatusInvalidFramePayloadData, "malformed message")
 			return
 		}
+		s.markSeen(ctx, sess)
 
 		switch p := msg.Payload.(type) {
 		case *pb.ClientMessage_Batch:

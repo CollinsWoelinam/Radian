@@ -107,3 +107,22 @@ func TestHubSlowClientGetsSnapshot(t *testing.T) {
 		t.Fatalf("got %+v, want a resync snapshot", got)
 	}
 }
+
+func TestHubPresenceKeepsVehicleOnline(t *testing.T) {
+	now := time.Now()
+	h := NewHub(2 * time.Minute)
+	h.Apply("indoors", fix(5.60, -0.20, now, 0))
+	// Five minutes later: no new fix, but the phone sent a heartbeat a moment ago.
+	later := now.Add(5 * time.Minute)
+	h.SetPresence(map[string]int64{"indoors": later.Add(-20 * time.Second).UnixMilli()})
+	h.Tick(later)
+	if s := h.vehicles["indoors"].Status; s == pb.VehicleStatus_VEHICLE_STATUS_OFFLINE {
+		t.Fatal("vehicle with a recent heartbeat shown as offline")
+	}
+	// Heartbeats stop too: now it's offline.
+	h.SetPresence(map[string]int64{})
+	h.Tick(later)
+	if s := h.vehicles["indoors"].Status; s != pb.VehicleStatus_VEHICLE_STATUS_OFFLINE {
+		t.Fatalf("status = %v, want OFFLINE", s)
+	}
+}
