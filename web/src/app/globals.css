@@ -14,6 +14,9 @@
   --accent-fg: #4f8bff; /* accent text and the mark on dark */
   --live: #f59e0b; /* reserved for the live vehicle */
   --shadow: 0 8px 30px rgb(0 0 0 / 0.4);
+  --surface: #131c2e; /* cards and side panels */
+  --sunken: #0d1525; /* rails, wells, columns */
+  --rail-active: #172238;
 }
 
 :root[data-theme="light"] {
@@ -29,6 +32,9 @@
   --accent-fg: #1d4ed8;
   --live: #f59e0b;
   --shadow: 0 8px 30px rgb(11 18 32 / 0.12);
+  --surface: #ffffff;
+  --sunken: #eef2f7;
+  --rail-active: #e8effe;
 }
 
 @theme inline {
@@ -43,6 +49,9 @@
   --color-accent-fg: var(--accent-fg);
   --color-live: var(--live);
   --color-ink: #0b1220;
+  --color-surface: var(--surface);
+  --color-sunken: var(--sunken);
+  --color-rail-active: var(--rail-active);
   --color-signal: #4f8bff;
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
