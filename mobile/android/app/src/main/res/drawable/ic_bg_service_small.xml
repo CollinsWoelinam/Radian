@@ -1,6 +1,16 @@
-<!-- Status-bar icon for the shift-tracking notification (navigation arrow). -->
+<!-- Status-bar icon for shift and job notifications: the Radian Sweep in one
+     colour (Android tints it). Sector, arc, baseline and the vehicle dot. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="24dp" android:height="24dp"
     android:viewportWidth="24" android:viewportHeight="24">
-    <path android:fillColor="#FFFFFFFF" android:pathData="M12,2L4.5,20.29l0.71,0.71L12,18l6.79,3 0.71,-0.71z"/>
+    <group android:translateY="0.9">
+        <path android:fillColor="#FFFFFFFF" android:fillAlpha="0.4"
+            android:pathData="M5.6,17.25 L18.4,17.25 A12.75,12.75 0 0,0 12.51,6.52 Z"/>
+        <path android:strokeColor="#FFFFFFFF" android:strokeWidth="2.2" android:strokeLineCap="round"
+            android:pathData="M18.4,17.25 A12.75,12.75 0 0,0 12.51,6.52"/>
+        <path android:strokeColor="#FFFFFFFF" android:strokeWidth="1.9" android:strokeLineCap="round"
+            android:pathData="M5.6,17.25 L18.4,17.25"/>
+        <path android:fillColor="#FFFFFFFF"
+            android:pathData="M9.81,6.52 a2.7,2.7 0 1,0 5.4,0 a2.7,2.7 0 1,0 -5.4,0"/>
+    </group>
 </vector>

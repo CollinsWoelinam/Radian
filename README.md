@@ -22,7 +22,7 @@ Flutter driver app ──(protobuf / WebSocket)──> ingest (Go)
 The mark, the **Sweep**, is a sector exactly one radian wide: its arc is as long as its radius.
 It reads as dispatch sweeping a search radius from an origin and landing on the nearest live
 vehicle, the amber dot. Night Ink `#0B1220`, Radian Blue `#2563EB`, Signal `#4F8BFF` (the mark on
-dark), Live Amber `#F59E0B` (only ever the live vehicle) and Paper `#F6F8FB`; type is Geist with
+dark), Live Amber `#F59E0B` (the live vehicle, plus the on-job status and warnings; never a background) and Paper `#F6F8FB`; type is Geist with
 Geist Mono for plates, coordinates and counts. The mark is drawn in code on both sides
 (`web/src/components/Brand.tsx`, `mobile/lib/ui/brand.dart`), so it stays sharp at every size.
 

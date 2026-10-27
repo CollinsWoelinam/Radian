@@ -178,6 +178,7 @@ Future<void> trackingServiceMain(ServiceInstance service) async {
           importance: Importance.high,
           priority: Priority.high,
           category: AndroidNotificationCategory.call,
+          color: Color(0xFF2563EB), // Radian Blue
           timeoutAfter: 30000,
         ),
       ),

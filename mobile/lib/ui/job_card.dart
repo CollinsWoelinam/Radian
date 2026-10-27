@@ -103,7 +103,7 @@ class JobCard extends StatelessWidget {
         padding: const EdgeInsets.all(16),
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           Row(children: [
-            Text('#${job.number}', style: theme.textTheme.labelLarge?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+            Text('#${job.number}', style: mono(theme.textTheme.labelLarge).copyWith(color: theme.colorScheme.onSurfaceVariant)),
             const SizedBox(width: 8),
             Expanded(child: Text(title, style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700))),
             if (job.urgent)
