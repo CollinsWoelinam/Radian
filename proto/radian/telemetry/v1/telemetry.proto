@@ -194,6 +194,10 @@ message GeofenceEvent {
   bool entered = 7;
   int64 occurred_at_ms = 8;
   GeoPoint position = 9;
+  // Stayed inside longer than the zone's dwell limit (entered is true).
+  bool dwell = 10;
+  // The zone's alert rules flag this event.
+  bool alert = 11;
 }
 
 // Zones were created or deleted; dashboards (and the geofencer) reload them.

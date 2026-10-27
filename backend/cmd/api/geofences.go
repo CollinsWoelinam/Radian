@@ -26,17 +26,32 @@ type Geofence struct {
 	AreaKm2        float64          `json:"area_km2"`
 	VehiclesInside int64            `json:"vehicles_inside"`
 	CreatedAt      time.Time        `json:"created_at"`
+	AlertRules
 }
+
+// AlertRules decide which crossings of a zone raise an alert.
+type AlertRules struct {
+	AlertOnEnter bool `json:"alert_on_enter"`
+	AlertOnExit  bool `json:"alert_on_exit"`
+	DwellAlertS  *int `json:"dwell_alert_s"` // alert after this long inside; null = off
+}
+
+// defaultRules match what each kind of zone is for.
+func defaultRules(kind string) AlertRules {
+	return AlertRules{AlertOnEnter: kind == "RESTRICTED", AlertOnExit: kind == "SERVICE_AREA"}
+}
+
+func validDwell(s *int) bool { return s == nil || (*s >= 30 && *s <= 86400) }
 
 const geofenceSelect = `
 	SELECT id, name, kind::text, ST_AsGeoJSON(area, 6)::json -> 'coordinates',
-	       ST_Area(area::geography) / 1e6, created_at
+	       ST_Area(area::geography) / 1e6, created_at, alert_on_enter, alert_on_exit, dwell_alert_s
 	FROM geofences`
 
 func (a *app) scanGeofences(r *http.Request, rows pgx.Rows) ([]Geofence, error) {
 	out, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (Geofence, error) {
 		var g Geofence
-		err := row.Scan(&g.ID, &g.Name, &g.Kind, &g.Area, &g.AreaKm2, &g.CreatedAt)
+		err := row.Scan(&g.ID, &g.Name, &g.Kind, &g.Area, &g.AreaKm2, &g.CreatedAt, &g.AlertOnEnter, &g.AlertOnExit, &g.DwellAlertS)
 		return g, err
 	})
 	if err != nil {
@@ -75,6 +90,7 @@ type createGeofenceRequest struct {
 	Name    string       `json:"name"`
 	Kind    string       `json:"kind"`
 	Polygon [][2]float64 `json:"polygon"` // [lon, lat] vertices, open or closed
+	Rules   *AlertRules  `json:"rules"`   // omitted: the kind's defaults
 }
 
 // POST /v1/geofences draws a zone from a single outline.
@@ -95,6 +111,14 @@ func (a *app) handleCreateGeofence(w http.ResponseWriter, r *http.Request) {
 		return
 	case len(ring) < 4 || len(ring) > 501:
 		writeError(w, http.StatusBadRequest, "invalid_polygon", "A zone needs between 3 and 500 corners.")
+		return
+	}
+	rules := defaultRules(req.Kind)
+	if req.Rules != nil {
+		rules = *req.Rules
+	}
+	if !validDwell(rules.DwellAlertS) {
+		writeError(w, http.StatusBadRequest, "invalid_dwell", "The time limit must be between 30 seconds and 24 hours.")
 		return
 	}
 	for _, p := range ring {
@@ -121,13 +145,13 @@ func (a *app) handleCreateGeofence(w http.ResponseWriter, r *http.Request) {
 
 	rows, err := a.pool.Query(r.Context(), `
 		WITH g AS (
-			INSERT INTO geofences (name, kind, area, created_by)
-			VALUES ($1, $2, ST_Multi(ST_SetSRID(ST_GeomFromGeoJSON($3), 4326)), $4)
+			INSERT INTO geofences (name, kind, area, created_by, alert_on_enter, alert_on_exit, dwell_alert_s)
+			VALUES ($1, $2, ST_Multi(ST_SetSRID(ST_GeomFromGeoJSON($3), 4326)), $4, $5, $6, $7)
 			RETURNING *
 		)
 		SELECT id, name, kind::text, ST_AsGeoJSON(area, 6)::json -> 'coordinates',
-		       ST_Area(area::geography) / 1e6, created_at FROM g`,
-		req.Name, req.Kind, shape, subject(r))
+		       ST_Area(area::geography) / 1e6, created_at, alert_on_enter, alert_on_exit, dwell_alert_s FROM g`,
+		req.Name, req.Kind, shape, subject(r), rules.AlertOnEnter, rules.AlertOnExit, rules.DwellAlertS)
 	if err != nil {
 		a.internal(w, "insert geofence", err)
 		return
@@ -146,6 +170,42 @@ func closeRing(pts [][2]float64) [][2]float64 {
 		pts = append(pts, pts[0])
 	}
 	return pts
+}
+
+// PUT /v1/geofences/{id}/rules replaces a zone's alert rules.
+func (a *app) handleUpdateGeofenceRules(w http.ResponseWriter, r *http.Request) {
+	var rules AlertRules
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 4<<10)).Decode(&rules); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_request", "Expected the zone's alert rules.")
+		return
+	}
+	if !validDwell(rules.DwellAlertS) {
+		writeError(w, http.StatusBadRequest, "invalid_dwell", "The time limit must be between 30 seconds and 24 hours.")
+		return
+	}
+	rows, err := a.pool.Query(r.Context(), `
+		WITH g AS (
+			UPDATE geofences SET alert_on_enter = $2, alert_on_exit = $3, dwell_alert_s = $4
+			WHERE id = $1 RETURNING *
+		)
+		SELECT id, name, kind::text, ST_AsGeoJSON(area, 6)::json -> 'coordinates',
+		       ST_Area(area::geography) / 1e6, created_at, alert_on_enter, alert_on_exit, dwell_alert_s FROM g`,
+		r.PathValue("id"), rules.AlertOnEnter, rules.AlertOnExit, rules.DwellAlertS)
+	if err != nil {
+		a.internal(w, "update geofence rules", err)
+		return
+	}
+	fences, err := a.scanGeofences(r, rows)
+	if err != nil {
+		a.internal(w, "update geofence rules", err)
+		return
+	}
+	if len(fences) == 0 {
+		writeError(w, http.StatusNotFound, "not_found", "Zone not found.")
+		return
+	}
+	a.dispatch.notify.GeofencesChanged(r.Context())
+	writeJSON(w, http.StatusOK, fences[0])
 }
 
 // DELETE /v1/geofences/{id}
@@ -176,6 +236,8 @@ type geofenceEvent struct {
 	VehicleID    string    `json:"vehicle_id"`
 	LicensePlate string    `json:"license_plate"`
 	Entered      bool      `json:"entered"`
+	Dwell        bool      `json:"dwell"`
+	Alert        bool      `json:"alert"`
 	OccurredAt   time.Time `json:"occurred_at"`
 	Position     *geoPoint `json:"position,omitempty"`
 }
@@ -187,7 +249,7 @@ func (a *app) handleGeofenceEvents(w http.ResponseWriter, r *http.Request) {
 		limit = 50
 	}
 	rows, err := a.pool.Query(r.Context(), `
-		SELECT e.id, g.id, g.name, g.kind::text, v.id, v.license_plate, e.entered, e.occurred_at,
+		SELECT e.id, g.id, g.name, g.kind::text, v.id, v.license_plate, e.entered, e.dwell, e.alert, e.occurred_at,
 		       ST_Y(e.location), ST_X(e.location)
 		FROM geofence_events e
 		JOIN geofences g ON g.id = e.geofence_id
@@ -204,7 +266,7 @@ func (a *app) handleGeofenceEvents(w http.ResponseWriter, r *http.Request) {
 			lat, lon *float64
 		)
 		err := row.Scan(&e.ID, &e.GeofenceID, &e.GeofenceName, &e.Kind, &e.VehicleID, &e.LicensePlate,
-			&e.Entered, &e.OccurredAt, &lat, &lon)
+			&e.Entered, &e.Dwell, &e.Alert, &e.OccurredAt, &lat, &lon)
 		if lat != nil && lon != nil {
 			e.Position = &geoPoint{Lat: *lat, Lon: *lon}
 		}

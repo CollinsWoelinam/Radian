@@ -118,15 +118,21 @@ func (s *service) watchChanges(ctx context.Context) {
 }
 
 func (s *service) loadFences(ctx context.Context, restore bool) error {
-	rows, err := s.pool.Query(ctx, `SELECT id, name, kind::text, ST_AsGeoJSON(area) FROM geofences`)
+	rows, err := s.pool.Query(ctx, `
+		SELECT id, name, kind::text, ST_AsGeoJSON(area), alert_on_enter, alert_on_exit, COALESCE(dwell_alert_s, 0)
+		FROM geofences`)
 	if err != nil {
 		return err
 	}
 	defer rows.Close()
 	var fences []*Fence
 	for rows.Next() {
-		var id, name, kind, geojson string
-		if err := rows.Scan(&id, &name, &kind, &geojson); err != nil {
+		var (
+			id, name, kind, geojson string
+			onEnter, onExit         bool
+			dwellS                  int
+		)
+		if err := rows.Scan(&id, &name, &kind, &geojson, &onEnter, &onExit, &dwellS); err != nil {
 			return err
 		}
 		var g struct {
@@ -136,7 +142,9 @@ func (s *service) loadFences(ctx context.Context, restore bool) error {
 			s.log.Warn("skipping unreadable geofence", "id", id, "err", err)
 			continue
 		}
-		fences = append(fences, NewFence(id, name, kindFromDB(kind), g.Coordinates))
+		f := NewFence(id, name, kindFromDB(kind), g.Coordinates)
+		f.AlertOnEnter, f.AlertOnExit, f.Dwell = onEnter, onExit, time.Duration(dwellS)*time.Second
+		fences = append(fences, f)
 	}
 	if err := rows.Err(); err != nil {
 		return err
@@ -238,11 +246,11 @@ func (s *service) commit(ctx context.Context, crossings []Crossing) {
 		var id int64
 		for attempt := 0; !c.Baseline; attempt++ {
 			err := s.pool.QueryRow(ctx, `
-				INSERT INTO geofence_events (geofence_id, vehicle_id, entered, occurred_at, location)
-				VALUES ($1, $2, $3, $4, ST_SetSRID(ST_MakePoint($5, $6), 4326))
+				INSERT INTO geofence_events (geofence_id, vehicle_id, entered, occurred_at, location, dwell, alert)
+				VALUES ($1, $2, $3, $4, ST_SetSRID(ST_MakePoint($5, $6), 4326), $7, $8)
 				ON CONFLICT DO NOTHING
 				RETURNING id`,
-				c.Fence.ID, c.VehicleID, c.Entered, c.Fix.At, c.Fix.Lon, c.Fix.Lat).Scan(&id)
+				c.Fence.ID, c.VehicleID, c.Entered, c.Fix.At, c.Fix.Lon, c.Fix.Lat, c.Dwell, c.Alert()).Scan(&id)
 			if err == nil || errors.Is(err, pgx.ErrNoRows) {
 				break // stored, or a replay of one already stored
 			}
@@ -260,9 +268,11 @@ func (s *service) commit(ctx context.Context, crossings []Crossing) {
 
 		key := stream.InsideKey(c.Fence.ID)
 		var err error
-		if c.Entered {
+		switch {
+		case c.Dwell: // membership was recorded at entry
+		case c.Entered:
 			err = s.rdb.SAdd(ctx, key, c.VehicleID).Err()
-		} else {
+		default:
 			err = s.rdb.SRem(ctx, key, c.VehicleID).Err()
 		}
 		if err != nil {
@@ -271,7 +281,7 @@ func (s *service) commit(ctx context.Context, crossings []Crossing) {
 		if id == 0 {
 			continue
 		}
-		s.log.Info("geofence crossing", "fence", c.Fence.Name, "vehicle", c.VehicleID, "entered", c.Entered)
+		s.log.Info("geofence crossing", "fence", c.Fence.Name, "vehicle", c.VehicleID, "entered", c.Entered, "dwell", c.Dwell, "alert", c.Alert())
 		s.publish(ctx, &pb.GeofenceEvent{
 			Id:           id,
 			GeofenceId:   c.Fence.ID,
@@ -282,6 +292,8 @@ func (s *service) commit(ctx context.Context, crossings []Crossing) {
 			Entered:      c.Entered,
 			OccurredAtMs: c.Fix.At.UnixMilli(),
 			Position:     &pb.GeoPoint{Latitude: c.Fix.Lat, Longitude: c.Fix.Lon},
+			Dwell:        c.Dwell,
+			Alert:        c.Alert(),
 		})
 	}
 }

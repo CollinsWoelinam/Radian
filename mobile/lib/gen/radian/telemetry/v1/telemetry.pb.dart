@@ -1608,6 +1608,8 @@ class GeofenceEvent extends $pb.GeneratedMessage {
     $core.bool? entered,
     $fixnum.Int64? occurredAtMs,
     GeoPoint? position,
+    $core.bool? dwell,
+    $core.bool? alert,
   }) {
     final result = GeofenceEvent._();
     if (id != null) result.id = id;
@@ -1619,6 +1621,8 @@ class GeofenceEvent extends $pb.GeneratedMessage {
     if (entered != null) result.entered = entered;
     if (occurredAtMs != null) result.occurredAtMs = occurredAtMs;
     if (position != null) result.position = position;
+    if (dwell != null) result.dwell = dwell;
+    if (alert != null) result.alert = alert;
     return result;
   }
 
@@ -1647,6 +1651,8 @@ class GeofenceEvent extends $pb.GeneratedMessage {
     ..aInt64(8, _omitFieldNames ? '' : 'occurredAtMs')
     ..aOM<GeoPoint>(9, _omitFieldNames ? '' : 'position',
         subBuilder: GeoPoint.$_createMessage)
+    ..aOB(10, _omitFieldNames ? '' : 'dwell')
+    ..aOB(11, _omitFieldNames ? '' : 'alert')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -1754,6 +1760,26 @@ class GeofenceEvent extends $pb.GeneratedMessage {
   void clearPosition() => $_clearField(9);
   @$pb.TagNumber(9)
   GeoPoint ensurePosition() => $_ensure(8);
+
+  /// Stayed inside longer than the zone's dwell limit (entered is true).
+  @$pb.TagNumber(10)
+  $core.bool get dwell => $_getBF(9);
+  @$pb.TagNumber(10)
+  set dwell($core.bool value) => $_setBool(9, value);
+  @$pb.TagNumber(10)
+  $core.bool hasDwell() => $_has(9);
+  @$pb.TagNumber(10)
+  void clearDwell() => $_clearField(10);
+
+  /// The zone's alert rules flag this event.
+  @$pb.TagNumber(11)
+  $core.bool get alert => $_getBF(10);
+  @$pb.TagNumber(11)
+  set alert($core.bool value) => $_setBool(10, value);
+  @$pb.TagNumber(11)
+  $core.bool hasAlert() => $_has(10);
+  @$pb.TagNumber(11)
+  void clearAlert() => $_clearField(11);
 }
 
 /// Zones were created or deleted; dashboards (and the geofencer) reload them.

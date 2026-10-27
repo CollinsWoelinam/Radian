@@ -586,6 +586,8 @@ const GeofenceEvent$json = {
       '6': '.radian.telemetry.v1.GeoPoint',
       '10': 'position'
     },
+    {'1': 'dwell', '3': 10, '4': 1, '5': 8, '10': 'dwell'},
+    {'1': 'alert', '3': 11, '4': 1, '5': 8, '10': 'alert'},
   ],
 };
 
@@ -597,7 +599,8 @@ final $typed_data.Uint8List geofenceEventDescriptor = $convert.base64Decode(
     'VfaWQYBSABKAlSCXZlaGljbGVJZBIjCg1saWNlbnNlX3BsYXRlGAYgASgJUgxsaWNlbnNlUGxh'
     'dGUSGAoHZW50ZXJlZBgHIAEoCFIHZW50ZXJlZBIkCg5vY2N1cnJlZF9hdF9tcxgIIAEoA1IMb2'
     'NjdXJyZWRBdE1zEjkKCHBvc2l0aW9uGAkgASgLMh0ucmFkaWFuLnRlbGVtZXRyeS52MS5HZW9Q'
-    'b2ludFIIcG9zaXRpb24=');
+    'b2ludFIIcG9zaXRpb24SFAoFZHdlbGwYCiABKAhSBWR3ZWxsEhQKBWFsZXJ0GAsgASgIUgVhbG'
+    'VydA==');
 
 @$core.Deprecated('Use geofencesChangedDescriptor instead')
 const GeofencesChanged$json = {

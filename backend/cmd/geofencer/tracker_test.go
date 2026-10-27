@@ -13,7 +13,11 @@ var depot = NewFence("depot", "Depot", pb.GeofenceKind_GEOFENCE_KIND_DEPOT, geo.
 	{{-0.20, 5.60}, {-0.19, 5.60}, {-0.19, 5.61}, {-0.20, 5.61}},
 }})
 
-var restricted = NewFence("airport", "Airport", pb.GeofenceKind_GEOFENCE_KIND_RESTRICTED, depot.Area)
+var restricted = func() *Fence {
+	f := NewFence("airport", "Airport", pb.GeofenceKind_GEOFENCE_KIND_RESTRICTED, depot.Area)
+	f.AlertOnEnter = true
+	return f
+}()
 
 var t0 = time.Date(2026, 10, 19, 12, 0, 0, 0, time.UTC)
 
@@ -120,5 +124,42 @@ func TestRemovedFenceIsForgotten(t *testing.T) {
 	tr.SetFences(nil)
 	if got := tr.Inside("v1"); len(got) != 0 {
 		t.Fatalf("still inside a deleted fence: %v", got)
+	}
+}
+
+func TestDwellAlertsOncePerVisit(t *testing.T) {
+	f := NewFence("rank", "Taxi rank", pb.GeofenceKind_GEOFENCE_KIND_DEPOT, depot.Area)
+	f.Dwell = 2 * time.Minute
+	tr := newTracker(f)
+	feed(tr, fix(0, outLon), fix(1, inLon), fix(2, inLon)) // entered at t=1
+	if c := feed(tr, fix(100, inLon)); len(c) != 0 {
+		t.Fatalf("too early for dwell: %+v", c)
+	}
+	c := feed(tr, fix(121, inLon))
+	if len(c) != 1 || !c[0].Dwell || !c[0].Alert() {
+		t.Fatalf("want one dwell alert, got %+v", c)
+	}
+	if c := feed(tr, fix(300, inLon)); len(c) != 0 {
+		t.Fatalf("dwell must fire once per visit, got %+v", c)
+	}
+	// Leave and come back: a new visit can alert again.
+	feed(tr, fix(301, outLon), fix(302, outLon), fix(303, inLon), fix(304, inLon))
+	if c := feed(tr, fix(430, inLon)); len(c) != 1 || !c[0].Dwell {
+		t.Fatalf("second visit should alert again, got %+v", c)
+	}
+}
+
+func TestAlertFollowsZoneRules(t *testing.T) {
+	quiet := NewFence("q", "Quiet depot", pb.GeofenceKind_GEOFENCE_KIND_DEPOT, depot.Area)
+	tr := newTracker(quiet)
+	feed(tr, fix(0, outLon))
+	c := feed(tr, fix(1, inLon), fix(2, inLon))
+	if len(c) != 1 || c[0].Alert() {
+		t.Fatalf("depot without rules should log but not alert: %+v", c)
+	}
+	quiet.AlertOnExit = true
+	c = feed(tr, fix(3, outLon), fix(4, outLon))
+	if len(c) != 1 || !c[0].Alert() {
+		t.Fatalf("exit should alert once the rule is on: %+v", c)
 	}
 }

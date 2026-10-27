@@ -361,7 +361,11 @@ func (a *app) handleDriverCurrentJob(w http.ResponseWriter, r *http.Request) {
 		a.internal(w, "driver job", err)
 		return
 	}
-	writeJSON(w, http.StatusOK, j)
+	// The road route ahead, so the app can draw it.
+	writeJSON(w, http.StatusOK, struct {
+		Job
+		Route []routeLeg `json:"route"`
+	}{j, a.routeFor(r.Context(), j)})
 }
 
 func (a *app) handleDriverAccept(w http.ResponseWriter, r *http.Request) {

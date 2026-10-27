@@ -14,6 +14,11 @@ type Fence struct {
 	Kind pb.GeofenceKind
 	Area geo.MultiPolygon
 
+	// Alert rules set per zone by the dispatcher.
+	AlertOnEnter bool
+	AlertOnExit  bool
+	Dwell        time.Duration // 0: no dwell alert
+
 	minLat, minLon, maxLat, maxLon float64
 }
 
@@ -39,6 +44,22 @@ type Crossing struct {
 	// Baseline marks membership adopted on first sighting: it updates the
 	// "who is inside" counts but is not an event and raises no alert.
 	Baseline bool
+	// Dwell marks a vehicle still inside after the zone's dwell limit.
+	Dwell bool
+}
+
+// Alert reports whether the zone's rules flag this crossing.
+func (c Crossing) Alert() bool {
+	switch {
+	case c.Baseline:
+		return false
+	case c.Dwell:
+		return true
+	case c.Entered:
+		return c.Fence.AlertOnEnter
+	default:
+		return c.Fence.AlertOnExit
+	}
 }
 
 // Tracker decides when a vehicle has really entered or left a zone.
@@ -47,7 +68,9 @@ type Crossing struct {
 // pairs, so a fix only counts when it is clearly on one side (farther from the
 // boundary than its own accuracy) and a crossing needs Confirm such fixes in a
 // row. Membership the first time a vehicle is seen near a fence is adopted
-// silently, except inside a restricted zone, which is always worth an alert.
+// silently, except in a zone that alerts on entry: being inside is the alert.
+// A vehicle that stays inside longer than the zone's dwell limit gets one
+// dwell event per visit.
 type Tracker struct {
 	Confirm      int
 	MaxAccuracyM float64 // fixes worse than this are ignored
@@ -61,6 +84,8 @@ type vehicleState struct {
 	lastAt  time.Time
 	inside  map[string]bool // fence ID -> inside; absent = never observed
 	pending map[string]*pending
+	since   map[string]time.Time // fence ID -> inside since (for dwell)
+	dwelt   map[string]bool      // dwell event already sent this visit
 }
 
 type pending struct {
@@ -90,6 +115,8 @@ func (t *Tracker) SetFences(fences []*Fence) {
 			if next[id] == nil {
 				delete(v.inside, id)
 				delete(v.pending, id)
+				delete(v.since, id)
+				delete(v.dwelt, id)
 			}
 		}
 	}
@@ -117,7 +144,7 @@ func (t *Tracker) Inside(vehicleID string) []string {
 func (t *Tracker) state(vehicleID string) *vehicleState {
 	v := t.vehicles[vehicleID]
 	if v == nil {
-		v = &vehicleState{inside: map[string]bool{}, pending: map[string]*pending{}}
+		v = &vehicleState{inside: map[string]bool{}, pending: map[string]*pending{}, since: map[string]time.Time{}, dwelt: map[string]bool{}}
 		t.vehicles[vehicleID] = v
 	}
 	return v
@@ -145,13 +172,16 @@ func (t *Tracker) Observe(vehicleID string, f Fix) []Crossing {
 		if !known {
 			v.inside[id] = side
 			if side {
-				baseline := fence.Kind != pb.GeofenceKind_GEOFENCE_KIND_RESTRICTED
-				out = append(out, Crossing{Fence: fence, VehicleID: vehicleID, Entered: true, Fix: f, Baseline: baseline})
+				v.since[id] = f.At
+				out = append(out, Crossing{Fence: fence, VehicleID: vehicleID, Entered: true, Fix: f, Baseline: !fence.AlertOnEnter})
 			}
 			continue
 		}
 		if side == was {
 			delete(v.pending, id)
+			if side {
+				out = append(out, t.checkDwell(v, fence, vehicleID, f)...)
+			}
 			continue
 		}
 		p := v.pending[id]
@@ -163,10 +193,32 @@ func (t *Tracker) Observe(vehicleID string, f Fix) []Crossing {
 		if p.n >= t.Confirm {
 			v.inside[id] = side
 			delete(v.pending, id)
+			delete(v.dwelt, id)
+			if side {
+				v.since[id] = p.first.At
+			} else {
+				delete(v.since, id)
+			}
 			out = append(out, Crossing{Fence: fence, VehicleID: vehicleID, Entered: side, Fix: p.first})
 		}
 	}
 	return out
+}
+
+// checkDwell emits one dwell crossing per visit once a vehicle has been inside
+// longer than the zone allows. Membership restored after a restart counts
+// from the first fix seen since.
+func (t *Tracker) checkDwell(v *vehicleState, fence *Fence, vehicleID string, f Fix) []Crossing {
+	since, ok := v.since[fence.ID]
+	if !ok {
+		v.since[fence.ID] = f.At
+		return nil
+	}
+	if fence.Dwell <= 0 || v.dwelt[fence.ID] || f.At.Sub(since) < fence.Dwell {
+		return nil
+	}
+	v.dwelt[fence.ID] = true
+	return []Crossing{{Fence: fence, VehicleID: vehicleID, Entered: true, Dwell: true, Fix: f}}
 }
 
 // side reports whether the fix is inside the fence, and whether it is far

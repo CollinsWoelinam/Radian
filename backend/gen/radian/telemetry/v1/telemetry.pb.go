@@ -1409,9 +1409,13 @@ type GeofenceEvent struct {
 	VehicleId    string                 `protobuf:"bytes,5,opt,name=vehicle_id,json=vehicleId,proto3" json:"vehicle_id,omitempty"`
 	LicensePlate string                 `protobuf:"bytes,6,opt,name=license_plate,json=licensePlate,proto3" json:"license_plate,omitempty"`
 	// True on entering the zone, false on leaving it.
-	Entered       bool      `protobuf:"varint,7,opt,name=entered,proto3" json:"entered,omitempty"`
-	OccurredAtMs  int64     `protobuf:"varint,8,opt,name=occurred_at_ms,json=occurredAtMs,proto3" json:"occurred_at_ms,omitempty"`
-	Position      *GeoPoint `protobuf:"bytes,9,opt,name=position,proto3" json:"position,omitempty"`
+	Entered      bool      `protobuf:"varint,7,opt,name=entered,proto3" json:"entered,omitempty"`
+	OccurredAtMs int64     `protobuf:"varint,8,opt,name=occurred_at_ms,json=occurredAtMs,proto3" json:"occurred_at_ms,omitempty"`
+	Position     *GeoPoint `protobuf:"bytes,9,opt,name=position,proto3" json:"position,omitempty"`
+	// Stayed inside longer than the zone's dwell limit (entered is true).
+	Dwell bool `protobuf:"varint,10,opt,name=dwell,proto3" json:"dwell,omitempty"`
+	// The zone's alert rules flag this event.
+	Alert         bool `protobuf:"varint,11,opt,name=alert,proto3" json:"alert,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1507,6 +1511,20 @@ func (x *GeofenceEvent) GetPosition() *GeoPoint {
 		return x.Position
 	}
 	return nil
+}
+
+func (x *GeofenceEvent) GetDwell() bool {
+	if x != nil {
+		return x.Dwell
+	}
+	return false
+}
+
+func (x *GeofenceEvent) GetAlert() bool {
+	if x != nil {
+		return x.Alert
+	}
+	return false
 }
 
 // Zones were created or deleted; dashboards (and the geofencer) reload them.
@@ -1763,7 +1781,7 @@ const file_radian_telemetry_v1_telemetry_proto_rawDesc = "" +
 	"\vis_snapshot\x18\x04 \x01(\bR\n" +
 	"isSnapshot\"&\n" +
 	"\vJobsChanged\x12\x17\n" +
-	"\ajob_ids\x18\x01 \x03(\tR\x06jobIds\"\xdb\x02\n" +
+	"\ajob_ids\x18\x01 \x03(\tR\x06jobIds\"\x87\x03\n" +
 	"\rGeofenceEvent\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x03R\x02id\x12\x1f\n" +
 	"\vgeofence_id\x18\x02 \x01(\tR\n" +
@@ -1775,7 +1793,10 @@ const file_radian_telemetry_v1_telemetry_proto_rawDesc = "" +
 	"\rlicense_plate\x18\x06 \x01(\tR\flicensePlate\x12\x18\n" +
 	"\aentered\x18\a \x01(\bR\aentered\x12$\n" +
 	"\x0eoccurred_at_ms\x18\b \x01(\x03R\foccurredAtMs\x129\n" +
-	"\bposition\x18\t \x01(\v2\x1d.radian.telemetry.v1.GeoPointR\bposition\"\x12\n" +
+	"\bposition\x18\t \x01(\v2\x1d.radian.telemetry.v1.GeoPointR\bposition\x12\x14\n" +
+	"\x05dwell\x18\n" +
+	" \x01(\bR\x05dwell\x12\x14\n" +
+	"\x05alert\x18\v \x01(\bR\x05alert\"\x12\n" +
 	"\x10GeofencesChanged\"\xd4\x02\n" +
 	"\x16DashboardServerMessage\x12E\n" +
 	"\ffleet_update\x18\x01 \x01(\v2 .radian.telemetry.v1.FleetUpdateH\x00R\vfleetUpdate\x12E\n" +
