@@ -737,7 +737,12 @@ class _Tile extends StatelessWidget {
             FittedBox(
               fit: BoxFit.scaleDown,
               alignment: Alignment.centerLeft,
-              child: Text(value, style: mono(theme.textTheme.titleLarge).copyWith(fontWeight: FontWeight.w600)),
+              // Mono for readings ("32 m", "± 5 m"), not for words ("under a minute").
+              child: Text(
+                value,
+                style: (value.contains(RegExp(r'\d')) ? mono(theme.textTheme.titleLarge) : theme.textTheme.titleLarge!)
+                    .copyWith(fontWeight: FontWeight.w600),
+              ),
             ),
             Text(detail, style: theme.textTheme.bodySmall?.copyWith(color: muted), maxLines: 1, overflow: TextOverflow.ellipsis),
           ],

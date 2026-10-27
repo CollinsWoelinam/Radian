@@ -69,34 +69,43 @@ class _LoginScreenState extends State<LoginScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
-                            if (typing)
-                              const Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  RadianMark(size: 44, ground: nightInk),
-                                  SizedBox(width: 10),
-                                  RadianWordmark(size: 30),
-                                ],
-                              )
-                            else ...[
-                              Text(
-                                'DRIVER',
-                                textAlign: TextAlign.center,
-                                style: mono(
-                                  theme.textTheme.labelMedium,
-                                ).copyWith(letterSpacing: 3.6, color: theme.colorScheme.onSurfaceVariant),
-                              ),
-                              const SizedBox(height: 28),
-                              const Center(child: RadianMark(size: 112, ground: nightInk)),
-                              const SizedBox(height: 14),
-                              const Center(child: RadianWordmark(size: 44)),
-                              const SizedBox(height: 10),
-                              Text(
-                                'Your shift, tracked and dispatched.',
-                                textAlign: TextAlign.center,
-                                style: theme.textTheme.bodyLarge?.copyWith(color: theme.colorScheme.onSurfaceVariant),
-                              ),
-                            ],
+                            // One slot for the header, whichever size: the fields below
+                            // must keep their place in the tree or they lose focus and text.
+                            AnimatedSize(
+                              duration: const Duration(milliseconds: 180),
+                              alignment: Alignment.topCenter,
+                              child: typing
+                                  ? const Row(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        RadianMark(size: 44, ground: nightInk),
+                                        SizedBox(width: 10),
+                                        RadianWordmark(size: 30),
+                                      ],
+                                    )
+                                  : Column(
+                                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                                      children: [
+                                        Text(
+                                          'DRIVER',
+                                          textAlign: TextAlign.center,
+                                          style: mono(
+                                            theme.textTheme.labelMedium,
+                                          ).copyWith(letterSpacing: 3.6, color: theme.colorScheme.onSurfaceVariant),
+                                        ),
+                                        const SizedBox(height: 28),
+                                        const Center(child: RadianMark(size: 112, ground: nightInk)),
+                                        const SizedBox(height: 14),
+                                        const Center(child: RadianWordmark(size: 44)),
+                                        const SizedBox(height: 10),
+                                        Text(
+                                          'Your shift, tracked and dispatched.',
+                                          textAlign: TextAlign.center,
+                                          style: theme.textTheme.bodyLarge?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                                        ),
+                                      ],
+                                    ),
+                            ),
                             SizedBox(height: typing ? 20 : 36),
                             TextFormField(
                               controller: _phone,

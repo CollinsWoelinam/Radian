@@ -1,8 +1,54 @@
-# Radian
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/brand/radian-logo-dark.svg">
+    <img src="docs/brand/radian-logo-light.svg" alt="Radian" width="300">
+  </picture>
+</p>
 
-Real-time fleet telemetry and dispatch. Drivers stream GPS from a Flutter app, a Go backend
-ingests and stores it in TimescaleDB + PostGIS, and a Next.js dashboard renders the live fleet
-with MapLibre + deck.gl.
+<p align="center"><strong>Real-time fleet telemetry &amp; dispatch.</strong><br>
+See every vehicle live, and send the nearest driver by real drive time.</p>
+
+Drivers stream GPS from a Flutter app, a Go backend ingests and stores it in TimescaleDB +
+PostGIS, and a Next.js dashboard renders the live fleet with MapLibre + deck.gl.
+
+![Dispatcher dashboard: a job offered to the nearest driver, with the live route to pickup and drop-off](docs/screenshots/web-dispatch-dark.jpg)
+
+## Screenshots
+
+### Dispatcher dashboard
+
+| | |
+|---|---|
+| ![Sign-in](docs/screenshots/web-signin.jpg) | ![Zones with live "vehicles inside" counts, light theme](docs/screenshots/web-zones-light.jpg) |
+| **Sign in.** The brand panel's rings echo the dispatch search radius. | **Zones** (depots, service areas, restricted areas) with live counts of the vehicles inside. |
+| ![A restricted-zone alert and the activity feed](docs/screenshots/web-alerts-dark.jpg) | ![Creating a job: pickup and drop-off clicked on the map](docs/screenshots/web-new-job-light.jpg) |
+| **Alerts.** Entering a restricted zone or leaving the service area raises a toast; every crossing lands in the feed. | **New job.** Click the pickup and drop-off on the map; it goes to the nearest driver by drive time, then the next on a decline or timeout. |
+
+### Driver app
+
+<table>
+  <tr>
+    <td width="25%"><img src="docs/screenshots/app-signin-ios.png" alt="Driver app sign-in on Night Ink"></td>
+    <td width="25%"><img src="docs/screenshots/app-checklist-android.png" alt="Pre-shift checklist on Android, dark theme"></td>
+    <td width="25%"><img src="docs/screenshots/app-on-shift-ios.png" alt="On shift and live, light theme"></td>
+    <td width="25%"><img src="docs/screenshots/app-end-shift-ios.png" alt="End shift confirmation"></td>
+  </tr>
+  <tr>
+    <td><b>Sign in</b> (iOS). The header shrinks while you type so Sign in stays on screen.</td>
+    <td><b>Before you start</b> (Android). Fixes for location, battery saver and the phone maker's background limits.</td>
+    <td><b>On shift.</b> The amber pulse is you: the live vehicle on the dispatcher's map.</td>
+    <td><b>End shift</b> with a summary, so a shift is never ended by accident.</td>
+  </tr>
+</table>
+
+<p align="center"><img src="docs/screenshots/app-job-offer.png" alt="A job offer with a countdown, and a job in progress" width="420"><br>
+<sub><b>Jobs.</b> An offer counts down before it goes to the next driver; once accepted, the card walks the driver through each stop.</sub></p>
+
+The phone screens come from the integration-test tour, which signs in, drives a simulated route
+and ends the shift: `mobile/tool/tour.sh ios <simulator-udid>` (or `android <serial>`), with the
+backend running.
+
+## Architecture
 
 ```
 Flutter driver app ──(protobuf / WebSocket)──> ingest (Go) <── job offers (Redis Pub/Sub) ── api (Go)
@@ -18,6 +64,11 @@ Flutter driver app ──(protobuf / WebSocket)──> ingest (Go)
 ```
 
 ## Brand
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/brand/radian-logo-dark.svg">
+  <img src="docs/brand/radian-logo-light.svg" alt="Radian logo" width="200">
+</picture>
 
 The mark, the **Sweep**, is a sector exactly one radian wide: its arc is as long as its radius.
 It reads as dispatch sweeping a search radius from an origin and landing on the nearest live
