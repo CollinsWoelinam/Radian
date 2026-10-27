@@ -27,6 +27,7 @@ void main() {
 
     await t.enterText(find.widgetWithText(TextFormField, 'Phone number'), '0240000001');
     await t.enterText(find.widgetWithText(TextFormField, 'Password'), 'radian-demo');
+    await t.ensureVisible(find.widgetWithText(FilledButton, 'Sign in'));
     await t.tap(find.widgetWithText(FilledButton, 'Sign in'));
     await pumpUntil(t, find.text('Start shift'));
     expect(find.text('GR 1024-26'), findsOneWidget);

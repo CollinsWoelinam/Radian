@@ -141,7 +141,7 @@ function CreateJob(p: Props) {
           hint="Click the destination, or skip if there isn't one."
         >
           {step === "dropoff" && (
-            <button onClick={p.onSkipDropoff} className="mt-1 text-[12px] font-medium text-accent">
+            <button onClick={p.onSkipDropoff} className="mt-1 text-[12px] font-medium text-accent-fg">
               Skip drop-off
             </button>
           )}
@@ -180,7 +180,7 @@ function CreateJob(p: Props) {
                     key={pr.value}
                     onClick={() => setPriority(pr.value)}
                     aria-pressed={priority === pr.value}
-                    className={`flex-1 rounded-lg border px-2 py-1.5 text-[12px] font-medium ${priority === pr.value ? (pr.value === 1 ? "border-red-500 bg-red-500/10 text-red-600" : "border-accent bg-accent/10 text-accent") : "border-line text-muted hover:bg-hover"}`}
+                    className={`flex-1 rounded-lg border px-2 py-1.5 text-[12px] font-medium ${priority === pr.value ? (pr.value === 1 ? "border-red-500 bg-red-500/10 text-red-600" : "border-accent bg-accent/10 text-accent-fg") : "border-line text-muted hover:bg-hover"}`}
                   >
                     {pr.label}
                   </button>
@@ -240,7 +240,7 @@ function JobDetailView({ job, onSelect, onCancelJob, loadCandidates, onOffer, on
                 <p className="text-[12px] text-muted">{job.vehicle.driver_name}</p>
               </div>
               {job.vehicle.position && (
-                <button onClick={() => onFocus(job.vehicle!.position!)} className="text-[12px] font-medium text-accent">
+                <button onClick={() => onFocus(job.vehicle!.position!)} className="text-[12px] font-medium text-accent-fg">
                   Show
                 </button>
               )}

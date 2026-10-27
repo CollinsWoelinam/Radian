@@ -19,6 +19,9 @@ class SpeedEstimator {
   static const _minGap = Duration(seconds: 2);
   static const _maxGap = Duration(seconds: 30);
   static const _maxRefAccuracyM = 25.0;
+  // Coarse fixes (cell/Wi-Fi, hundreds of meters) can carry a speed too, but
+  // it is noise: a phone on a desk read 28 km/h from a ±300 m fix.
+  static const _maxSpeedAccuracyM = 100.0;
 
   ({double? speedKmh, double? headingDeg}) estimate({
     required double lat,
@@ -30,7 +33,7 @@ class SpeedEstimator {
     required double headingDeg,
   }) {
     final platformKmh = speedMps * 3.6;
-    final plausible = speedMps >= 0 && platformKmh <= maxPlausibleKmh;
+    final plausible = speedMps >= 0 && platformKmh <= maxPlausibleKmh && accuracyM <= _maxSpeedAccuracyM;
     final platformHeading = headingDeg >= 0 && speedMps > 0.5 ? headingDeg : null;
 
     double? speed;

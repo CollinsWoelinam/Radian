@@ -75,6 +75,25 @@ flutter:
   # the material Icons class.
   uses-material-design: true
 
+  # Geist and Geist Mono (SIL Open Font License, assets/fonts/OFL.txt).
+  fonts:
+    - family: Geist
+      fonts:
+        - asset: assets/fonts/Geist-Regular.ttf
+        - asset: assets/fonts/Geist-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/Geist-SemiBold.ttf
+          weight: 600
+        - asset: assets/fonts/Geist-Bold.ttf
+          weight: 700
+    - family: Geist Mono
+      fonts:
+        - asset: assets/fonts/GeistMono-Regular.ttf
+        - asset: assets/fonts/GeistMono-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/GeistMono-SemiBold.ttf
+          weight: 600
+
   # To add assets to your application, add an assets section, like this:
   # assets:
   #   - images/a_dot_burr.jpeg
@@ -115,13 +134,10 @@ flutter_launcher_icons:
   remove_alpha_ios: true
 
 flutter_native_splash:
-  color: "#F4F6F9"
+  # Night Ink in light and dark mode alike, like the sign-in screen it opens onto.
+  color: "#0B1220"
   image: assets/branding/splash.png
-  color_dark: "#0B0F14"
-  image_dark: assets/branding/splash.png
   android_12:
-    color: "#F4F6F9"
-    color_dark: "#0B0F14"
+    color: "#0B1220"
     image: assets/branding/icon_foreground_splash.png
-    icon_background_color: "#2563EB"
-    icon_background_color_dark: "#2563EB"
+    icon_background_color: "#0B1220"

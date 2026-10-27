@@ -19,7 +19,7 @@ export type StatusKey = "EN_ROUTE" | "ON_JOB" | "IDLE" | "OFFLINE";
 export const STATUSES: { key: StatusKey; value: VehicleStatus; label: string; rgb: [number, number, number] }[] = [
   { key: "EN_ROUTE", value: VehicleStatus.EN_ROUTE, label: "En route", rgb: [59, 130, 246] },
   { key: "ON_JOB", value: VehicleStatus.ON_JOB, label: "On job", rgb: [245, 158, 11] },
-  { key: "IDLE", value: VehicleStatus.IDLE, label: "Idle", rgb: [34, 197, 94] },
+  { key: "IDLE", value: VehicleStatus.IDLE, label: "Idle", rgb: [16, 185, 129] },
   { key: "OFFLINE", value: VehicleStatus.OFFLINE, label: "Offline", rgb: [120, 128, 140] },
 ];
 

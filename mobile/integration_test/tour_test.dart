@@ -40,12 +40,14 @@ void main() {
     await pumpUntil(t, find.text('Sign in'));
     await hold(t, '01-login');
 
+    await t.ensureVisible(find.widgetWithText(FilledButton, 'Sign in'));
     await t.tap(find.widgetWithText(FilledButton, 'Sign in'));
     await t.pump(const Duration(milliseconds: 300));
     await hold(t, '02-login-validation');
 
     await t.enterText(find.widgetWithText(TextFormField, 'Phone number'), '0240000001');
     await t.enterText(find.widgetWithText(TextFormField, 'Password'), 'wrong-password');
+    await t.ensureVisible(find.widgetWithText(FilledButton, 'Sign in'));
     await t.tap(find.widgetWithText(FilledButton, 'Sign in'));
     await pumpUntil(t, find.textContaining('incorrect'));
     FocusManager.instance.primaryFocus?.unfocus();
@@ -61,6 +63,7 @@ void main() {
     // Skip the OS "Save password?" sheet: it's native, so the test can't
     // dismiss it, and it would cover every screen after sign-in.
     TextInput.finishAutofillContext(shouldSave: false);
+    await t.ensureVisible(find.widgetWithText(FilledButton, 'Sign in'));
     await t.tap(find.widgetWithText(FilledButton, 'Sign in'));
     await pumpUntil(t, find.text('Start shift'));
     await hold(t, '04-off-shift');

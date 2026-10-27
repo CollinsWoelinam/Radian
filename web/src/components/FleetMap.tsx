@@ -50,7 +50,11 @@ function zoneData(zones: Zone[], cache: ZoneData | null): ZoneData {
     const outer = zone.area[0]?.[0] ?? [];
     const lons = outer.map((p) => p[0]);
     const lats = outer.map((p) => p[1]);
-    return { zone, at: [(Math.min(...lons) + Math.max(...lons)) / 2, (Math.min(...lats) + Math.max(...lats)) / 2] as [number, number] };
+    const [minLat, maxLat] = [Math.min(...lats), Math.max(...lats)];
+    // Big zones (a service area) would put their label on top of the small
+    // zones inside them: label those just inside their top edge instead.
+    const lat = zone.area_km2 > 20 ? maxLat - (maxLat - minLat) * 0.04 : (minLat + maxLat) / 2;
+    return { zone, at: [(Math.min(...lons) + Math.max(...lons)) / 2, lat] as [number, number] };
   });
   return { zones, parts, labels };
 }

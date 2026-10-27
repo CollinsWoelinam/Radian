@@ -46,96 +46,141 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Scaffold(
-      body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(24),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 420),
-              child: Form(
-                key: _form,
-                child: AutofillGroup(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      const _Logo(),
-                      const SizedBox(height: 24),
-                      Text('Radian Driver', style: theme.textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w700)),
-                      const SizedBox(height: 4),
-                      Text('Sign in to start your shift.', style: theme.textTheme.bodyLarge?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
-                      const SizedBox(height: 32),
-                      TextFormField(
-                        controller: _phone,
-                        keyboardType: TextInputType.phone,
-                        autofillHints: const [AutofillHints.telephoneNumber],
-                        textInputAction: TextInputAction.next,
-                        decoration: const InputDecoration(labelText: 'Phone number', prefixIcon: Icon(Icons.phone_outlined)),
-                        validator: (v) => (v ?? '').trim().length < 9 ? 'Enter your phone number' : null,
-                      ),
-                      const SizedBox(height: 16),
-                      TextFormField(
-                        controller: _password,
-                        obscureText: _obscure,
-                        autofillHints: const [AutofillHints.password],
-                        textInputAction: TextInputAction.done,
-                        onFieldSubmitted: (_) => _submit(),
-                        decoration: InputDecoration(
-                          labelText: 'Password',
-                          prefixIcon: const Icon(Icons.lock_outline),
-                          suffixIcon: IconButton(
-                            tooltip: _obscure ? 'Show password' : 'Hide password',
-                            icon: Icon(_obscure ? Icons.visibility_outlined : Icons.visibility_off_outlined),
-                            onPressed: () => setState(() => _obscure = !_obscure),
-                          ),
+    // The entry screen is always on Night Ink, like the splash it follows.
+    final theme = buildTheme(Brightness.dark);
+    // With the keyboard up, shrink the brand so Sign in stays on screen.
+    final typing = MediaQuery.viewInsetsOf(context).bottom > 0;
+    return Theme(
+      data: theme,
+      child: Scaffold(
+        backgroundColor: nightInk,
+        body: Stack(
+          children: [
+            const Positioned.fill(child: CustomPaint(painter: _RadiusRings())),
+            SafeArea(
+              child: Center(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(24, 32, 24, 24),
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 420),
+                    child: Form(
+                      key: _form,
+                      child: AutofillGroup(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            if (typing)
+                              const Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  RadianMark(size: 44, ground: nightInk),
+                                  SizedBox(width: 10),
+                                  RadianWordmark(size: 30),
+                                ],
+                              )
+                            else ...[
+                              Text(
+                                'DRIVER',
+                                textAlign: TextAlign.center,
+                                style: mono(
+                                  theme.textTheme.labelMedium,
+                                ).copyWith(letterSpacing: 3.6, color: theme.colorScheme.onSurfaceVariant),
+                              ),
+                              const SizedBox(height: 28),
+                              const Center(child: RadianMark(size: 112, ground: nightInk)),
+                              const SizedBox(height: 14),
+                              const Center(child: RadianWordmark(size: 44)),
+                              const SizedBox(height: 10),
+                              Text(
+                                'Your shift, tracked and dispatched.',
+                                textAlign: TextAlign.center,
+                                style: theme.textTheme.bodyLarge?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                              ),
+                            ],
+                            SizedBox(height: typing ? 20 : 36),
+                            TextFormField(
+                              controller: _phone,
+                              keyboardType: TextInputType.phone,
+                              autofillHints: const [AutofillHints.telephoneNumber],
+                              textInputAction: TextInputAction.next,
+                              decoration: const InputDecoration(labelText: 'Phone number', prefixIcon: Icon(Icons.phone_outlined)),
+                              validator: (v) => (v ?? '').trim().length < 9 ? 'Enter your phone number' : null,
+                            ),
+                            const SizedBox(height: 14),
+                            TextFormField(
+                              controller: _password,
+                              obscureText: _obscure,
+                              autofillHints: const [AutofillHints.password],
+                              textInputAction: TextInputAction.done,
+                              onFieldSubmitted: (_) => _submit(),
+                              decoration: InputDecoration(
+                                labelText: 'Password',
+                                prefixIcon: const Icon(Icons.lock_outline),
+                                suffixIcon: IconButton(
+                                  tooltip: _obscure ? 'Show password' : 'Hide password',
+                                  icon: Icon(_obscure ? Icons.visibility_outlined : Icons.visibility_off_outlined),
+                                  onPressed: () => setState(() => _obscure = !_obscure),
+                                ),
+                              ),
+                              validator: (v) => (v ?? '').isEmpty ? 'Enter your password' : null,
+                            ),
+                            if (_error != null) ...[
+                              const SizedBox(height: 16),
+                              Text(_error!, style: TextStyle(color: theme.colorScheme.error)),
+                            ],
+                            const SizedBox(height: 24),
+                            FilledButton(
+                              onPressed: _busy ? null : _submit,
+                              child: _busy
+                                  ? const SizedBox.square(
+                                      dimension: 22,
+                                      child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white),
+                                    )
+                                  : const Text('Sign in'),
+                            ),
+                            if (!typing) ...[
+                              const SizedBox(height: 14),
+                              Text(
+                                'Location is used only while you are on shift',
+                                textAlign: TextAlign.center,
+                                style: mono(theme.textTheme.bodySmall).copyWith(color: theme.colorScheme.onSurfaceVariant),
+                              ),
+                            ],
+                          ],
                         ),
-                        validator: (v) => (v ?? '').isEmpty ? 'Enter your password' : null,
                       ),
-                      if (_error != null) ...[
-                        const SizedBox(height: 16),
-                        Text(_error!, style: TextStyle(color: theme.colorScheme.error)),
-                      ],
-                      const SizedBox(height: 24),
-                      FilledButton(
-                        onPressed: _busy ? null : _submit,
-                        child: _busy
-                            ? const SizedBox.square(dimension: 22, child: CircularProgressIndicator(strokeWidth: 2.5))
-                            : const Text('Sign in'),
-                      ),
-                    ],
+                    ),
                   ),
                 ),
               ),
             ),
-          ),
+          ],
         ),
       ),
     );
   }
 }
 
-class _Logo extends StatelessWidget {
-  const _Logo();
+/// Faint concentric search radii behind the sign-in form.
+class _RadiusRings extends CustomPainter {
+  const _RadiusRings();
 
   @override
-  Widget build(BuildContext context) {
-    return Align(
-      alignment: Alignment.centerLeft,
-      child: Container(
-        width: 56,
-        height: 56,
-        // Same gradient as the app icon.
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(16),
-          gradient: const LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [brandBlue, Color(0xFF1D4ED8)],
-          ),
-        ),
-        child: const Icon(Icons.near_me_rounded, color: Colors.white, size: 30),
-      ),
-    );
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width * 0.29, size.height * 0.5);
+    for (var i = 0; i < 5; i++) {
+      final r = size.width * (0.3 + 0.24 * i);
+      canvas.drawCircle(
+        center,
+        r,
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1
+          ..color = signalBlue.withValues(alpha: 0.1 - 0.015 * i),
+      );
+    }
   }
+
+  @override
+  bool shouldRepaint(_RadiusRings old) => false;
 }

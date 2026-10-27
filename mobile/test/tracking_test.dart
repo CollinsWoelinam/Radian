@@ -95,6 +95,13 @@ void main() {
       }
     });
 
+    test('ignores the speed on a coarse network fix', () {
+      final e = SpeedEstimator();
+      // A ±300 m cell/Wi-Fi fix claiming 28 km/h on a phone lying still.
+      final r = feed(e, 0, 0, acc: 300, speed: 7.8, speedAcc: 1.5);
+      expect(r.speedKmh, isNull);
+    });
+
     test("trusts the phone's measured speed, including zero", () {
       final e = SpeedEstimator();
       feed(e, 0, 0);

@@ -6,6 +6,7 @@ import type { MapRef } from "react-map-gl/maplibre";
 import FleetMap, { type JobOverlay, type ZoneOverlay } from "./FleetMap";
 import JobsPanel, { type PanelMode } from "./JobsPanel";
 import ZonesPanel, { type ZoneMode } from "./ZonesPanel";
+import { RadianMark, Wordmark } from "./Brand";
 import LoginScreen from "./LoginScreen";
 import { clearSession, loadSession, type DispatcherSession } from "@/lib/auth";
 import { JobsApi, type Job, type JobDetail, type LatLon } from "@/lib/jobs";
@@ -43,6 +44,10 @@ export default function Dashboard() {
     clearSession();
     setSession(null);
   }, []);
+  // Signed out, follow the saved or system theme (the dashboard has a toggle).
+  useEffect(() => {
+    if (!session) document.documentElement.dataset.theme = initialTheme();
+  }, [session]);
   if (!session) return <LoginScreen onSignedIn={setSession} />;
   return <FleetDashboard session={session} onSignOut={signOut} />;
 }
@@ -409,10 +414,12 @@ function FleetDashboard({ session, onSignOut }: { session: DispatcherSession; on
       <aside className="panel absolute left-4 top-4 z-10 w-[min(320px,calc(100vw-2rem))] p-4">
         <header className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Logo />
+            <RadianMark size={34} />
             <div>
-              <h1 className="text-[15px] font-semibold leading-tight tracking-tight">Radian</h1>
-              <p className="text-[11px] text-muted">Fleet control · Accra</p>
+              <h1 className="text-[19px] leading-none">
+                <Wordmark />
+              </h1>
+              <p className="mt-0.5 text-[11px] text-muted">Fleet control · Accra</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -688,17 +695,6 @@ function ago(ms: number) {
   if (s < 60) return `${s}s ago`;
   if (s < 3600) return `${Math.floor(s / 60)}m ago`;
   return `${Math.floor(s / 3600)}h ago`;
-}
-
-function Logo() {
-  return (
-    <svg width="28" height="28" viewBox="0 0 28 28" aria-hidden>
-      <rect width="28" height="28" rx="7" className="fill-accent" />
-      <circle cx="14" cy="14" r="3" fill="#fff" />
-      <path d="M14 5a9 9 0 0 1 9 9" stroke="#fff" strokeWidth="2" fill="none" strokeLinecap="round" />
-      <path d="M14 9a5 5 0 0 1 5 5" stroke="#fff" strokeWidth="2" fill="none" strokeLinecap="round" opacity=".7" />
-    </svg>
-  );
 }
 
 const iconProps = { width: 16, height: 16, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 2, strokeLinecap: "round" as const, strokeLinejoin: "round" as const, "aria-hidden": true };

@@ -54,7 +54,7 @@ class JobCard extends StatelessWidget {
           const SizedBox(height: 12),
           _Stop(icon: Icons.trip_origin, color: liveGreen, label: 'Pickup', text: _place(job.pickupAddress, job.pickup)),
           if (job.dropoff != null)
-            _Stop(icon: Icons.place, color: const Color(0xFFA855F7), label: 'Drop-off', text: _place(job.dropoffAddress, job.dropoff!)),
+            _Stop(icon: Icons.place, color: dropoffPurple, label: 'Drop-off', text: _place(job.dropoffAddress, job.dropoff!)),
           if ((job.notes ?? '').isNotEmpty) ...[
             const SizedBox(height: 8),
             Text(job.notes!, style: theme.textTheme.bodyMedium?.copyWith(fontStyle: FontStyle.italic)),
@@ -122,7 +122,7 @@ class JobCard extends StatelessWidget {
             done: toDropoff,
           ),
           if (job.dropoff != null)
-            _Stop(icon: Icons.place, color: const Color(0xFFA855F7), label: 'Drop-off', text: _place(job.dropoffAddress, job.dropoff!)),
+            _Stop(icon: Icons.place, color: dropoffPurple, label: 'Drop-off', text: _place(job.dropoffAddress, job.dropoff!)),
           if ((job.notes ?? '').isNotEmpty) ...[
             const SizedBox(height: 4),
             Text(job.notes!, style: theme.textTheme.bodyMedium?.copyWith(fontStyle: FontStyle.italic)),

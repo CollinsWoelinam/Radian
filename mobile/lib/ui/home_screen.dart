@@ -347,17 +347,23 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(widget.session.plate, style: const TextStyle(fontWeight: FontWeight.w700)),
-            Text(
-              '${widget.session.driverName} · ${_kind(widget.session.vehicleKind)}',
-              style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+        titleSpacing: 16,
+        title: Row(children: [
+          const RadianMark(size: 34),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(widget.session.plate, style: mono(theme.textTheme.titleMedium).copyWith(fontWeight: FontWeight.w600)),
+                Text(
+                  '${widget.session.driverName} · ${_kind(widget.session.vehicleKind)}',
+                  style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                ),
+              ],
             ),
-          ],
-        ),
+          ),
+        ]),
         actions: [
           PopupMenuButton<String>(
             tooltip: 'More',
@@ -539,7 +545,8 @@ class _ShiftHero extends StatelessWidget {
     final theme = Theme.of(context);
     final s = status;
     final live = s.link == LinkState.online;
-    final color = live ? liveGreen : warnAmber;
+    // On shift, the driver is the live vehicle: the mark's amber dot.
+    final color = live ? liveAmber : theme.colorScheme.outline;
     final title = live ? 'On shift · Live' : (s.link == LinkState.connecting ? 'On shift · Connecting' : 'On shift · Offline');
     final updated = s.lastFixAt == null ? 'Waiting for GPS…' : 'Updated ${_ago(s.lastFixAt)}';
     final subtitle = live
@@ -730,7 +737,7 @@ class _Tile extends StatelessWidget {
             FittedBox(
               fit: BoxFit.scaleDown,
               alignment: Alignment.centerLeft,
-              child: Text(value, style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700)),
+              child: Text(value, style: mono(theme.textTheme.titleLarge).copyWith(fontWeight: FontWeight.w600)),
             ),
             Text(detail, style: theme.textTheme.bodySmall?.copyWith(color: muted), maxLines: 1, overflow: TextOverflow.ellipsis),
           ],

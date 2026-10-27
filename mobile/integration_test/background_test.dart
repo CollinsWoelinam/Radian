@@ -34,6 +34,7 @@ void main() {
     await t.enterText(find.widgetWithText(TextFormField, 'Phone number'), '0240000001');
     await t.enterText(find.widgetWithText(TextFormField, 'Password'), 'radian-demo');
     TextInput.finishAutofillContext(shouldSave: false);
+    await t.ensureVisible(find.widgetWithText(FilledButton, 'Sign in'));
     await t.tap(find.widgetWithText(FilledButton, 'Sign in'));
     await pumpUntil(t, find.text('Start shift'));
     await t.tap(find.text('Start shift'));
