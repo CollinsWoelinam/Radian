@@ -16,6 +16,23 @@ class LatLon {
   }
 }
 
+/// A stretch of road route: to the pickup, or on to the drop-off.
+class RouteLeg {
+  const RouteLeg({required this.toPickup, required this.durationS, required this.distanceM, required this.points});
+  final bool toPickup;
+  final double durationS;
+  final double distanceM;
+  final List<LatLon> points;
+
+  static RouteLeg fromJson(Map<String, dynamic> j) => RouteLeg(
+        toPickup: j['kind'] == 'to_pickup',
+        durationS: (j['duration_s'] as num).toDouble(),
+        distanceM: (j['distance_m'] as num).toDouble(),
+        // [lon, lat] pairs, GeoJSON order.
+        points: [for (final c in j['coordinates'] as List) LatLon((c[1] as num).toDouble(), (c[0] as num).toDouble())],
+      );
+}
+
 /// The job offered to, or being worked by, this driver.
 class DriverJob {
   DriverJob({
@@ -30,6 +47,7 @@ class DriverJob {
     this.notes,
     this.etaSeconds,
     this.offerExpiresAt,
+    this.route = const [],
   });
 
   final String id;
@@ -43,6 +61,10 @@ class DriverJob {
   final String? notes;
   final int? etaSeconds;
   final DateTime? offerExpiresAt;
+  final List<RouteLeg> route;
+
+  RouteLeg? get toPickup => route.where((l) => l.toPickup).firstOrNull;
+  RouteLeg? get toDropoff => route.where((l) => !l.toPickup).firstOrNull;
 
   bool get isOffer => status == 'OFFERED';
   bool get urgent => priority <= 2;
@@ -62,6 +84,7 @@ class DriverJob {
         notes: j['notes'] as String?,
         etaSeconds: (j['eta_seconds'] as num?)?.toInt(),
         offerExpiresAt: j['offer_expires_at'] == null ? null : DateTime.parse(j['offer_expires_at'] as String),
+        route: [for (final l in (j['route'] as List?) ?? const []) RouteLeg.fromJson(l as Map<String, dynamic>)],
       );
 }
 

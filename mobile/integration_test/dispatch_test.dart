@@ -98,10 +98,18 @@ void main() {
     await t.tap(find.text('Complete job'));
     await pumpUntil(t, find.text('Job complete. Nice work.'));
     await hold(t, '14-job-complete');
+    // The confirmation floats over the bottom buttons for a few seconds; a
+    // driver would wait for it to go.
+    ScaffoldMessenger.of(t.element(find.text('End shift'))).hideCurrentSnackBar();
+    for (var i = 0; i < 4; i++) {
+      await t.pump(const Duration(milliseconds: 250));
+    }
 
     await t.tap(find.text('End shift'));
     await pumpUntil(t, find.text('End shift?'));
     await t.tap(find.widgetWithText(FilledButton, 'End shift').last);
+    await pumpUntil(t, find.text('Shift complete'));
+    await t.tap(find.text('Done'));
     await pumpUntil(t, find.text('Off shift'));
   });
 }

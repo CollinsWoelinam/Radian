@@ -7,13 +7,14 @@ import 'package:permission_handler/permission_handler.dart' show Permission, Per
 
 import '../auth/session.dart';
 import '../jobs/driver_job.dart';
+import '../shifts/shift_api.dart';
 import '../tracking/host.dart';
-import '../tracking/motion.dart';
 import '../tracking/permissions.dart';
 import '../tracking/readiness.dart';
 import '../tracking/status.dart';
-import 'job_card.dart';
-import 'theme.dart';
+import 'format.dart';
+import 'shift_views.dart';
+import 'tabs.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key, required this.session, required this.onSignedOut});
@@ -44,6 +45,12 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   int _lastJobSignal = 0;
   Timer? _jobPoll;
   Timer? _offerExpiry;
+
+  int _tab = 0;
+  // This shift's server record and the jobs completed in it.
+  String? _shiftId;
+  ShiftDetail? _today;
+  int _historyKey = 0;
 
   @override
   void initState() {
@@ -90,7 +97,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       if (s.running) _interrupted = false;
       _backlogPeak = s.queued == 0 ? 0 : (s.queued > _backlogPeak ? s.queued : _backlogPeak);
     });
-    if (s.running && !wasRunning) _startJobPolling();
+    if (s.running && !wasRunning) {
+      _startJobPolling();
+      _openShift();
+    }
     if (!s.running && wasRunning) _stopJobPolling();
     if (s.jobSignal != _lastJobSignal) {
       _lastJobSignal = s.jobSignal;
@@ -131,10 +141,35 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     }
   }
 
+  /// Records the shift on the server (best effort: ending it also creates it).
+  Future<void> _openShift() async {
+    final started = await ShiftStore.startedAt();
+    if (started == null) return;
+    try {
+      final s = await ShiftApi.start(started);
+      _shiftId = s.id;
+      await _refreshToday();
+    } catch (_) {}
+  }
+
+  Future<void> _refreshToday() async {
+    try {
+      var id = _shiftId;
+      if (id == null) {
+        final recent = await ShiftApi.list(limit: 1);
+        if (recent.isEmpty) return;
+        id = recent.first.id;
+      }
+      final d = await ShiftApi.get(id);
+      if (mounted) setState(() => _today = d);
+    } catch (_) {}
+  }
+
   Future<void> _jobAction(Future<void> Function() action, {String? done}) async {
     setState(() => _jobBusy = true);
     try {
       await action();
+      if (done != null) _refreshToday();
       if (done != null && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(done)));
       }
@@ -153,8 +188,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     if (running) {
       if (mounted) setState(() => _status = _status.copyWith(running: true));
       _startJobPolling();
+      _openShift();
       return;
     }
+    _refreshToday();
     await _recheck();
     // Re-check after the (slow) readiness probe: the driver may have tapped
     // "Start shift" meanwhile, which also records a shift start.
@@ -204,7 +241,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       builder: (ctx) => AlertDialog(
         title: const Text('End shift?'),
         content: Text([
-          'You\'ve been on shift ${_duration(s.startedAt)} and driven ${_km(s.distanceM)}.',
+          'You\'ve been on shift ${sinceText(s.startedAt)} and driven ${km(s.distanceM)}.',
           if (s.queued > 0)
             '${s.queued} location updates are still saved on this phone. They\'ll upload next time you\'re online.',
           'Dispatch will stop seeing your vehicle.',
@@ -225,11 +262,30 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     );
     if (confirmed != true) return;
     setState(() => _busy = true);
+    final started = s.startedAt ?? await ShiftStore.startedAt() ?? DateTime.now();
     try {
       HapticFeedback.mediumImpact();
       await _host.stop();
     } finally {
       if (mounted) setState(() => _busy = false);
+    }
+    // The server works out the shift's distance and jobs from what it received.
+    ShiftDetail? detail;
+    try {
+      detail = await ShiftApi.end(started, DateTime.now());
+    } catch (_) {}
+    _shiftId = null;
+    if (!mounted) return;
+    setState(() {
+      _historyKey++;
+      if (detail != null) _today = detail;
+    });
+    if (detail != null) {
+      await Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => ShiftSummaryScreen(detail: detail!, justEnded: true)));
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Shift ended after ${durationText(DateTime.now().difference(started))}. The summary will be in History once you\'re online.')),
+      );
     }
   }
 
@@ -341,463 +397,84 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final s = _status;
     final onShift = s.running;
+    final job = _job;
+    final offer = onShift && job != null && job.isOffer;
+
+    final Widget shiftTab = !onShift
+        ? OffShiftView(
+            session: widget.session,
+            readiness: _readiness,
+            interrupted: _interrupted,
+            busy: _busy,
+            onStart: _startShift,
+            onAction: _runAction,
+            onRefresh: _recheck,
+          )
+        : job != null && !job.isOffer
+            ? NavigateView(
+                job: job,
+                status: s,
+                busy: _jobBusy,
+                onAdvance: (st) => _jobAction(
+                  () => DriverJobApi.setStatus(job.id, st),
+                  done: st == 'COMPLETED' ? 'Job complete. Nice work.' : null,
+                ),
+              )
+            : LiveView(
+                session: widget.session,
+                status: s,
+                jobsDone: _today?.jobs.length,
+                backlogPeak: _backlogPeak,
+                busy: _busy,
+                onEnd: _endShift,
+              );
 
     return Scaffold(
-      appBar: AppBar(
-        titleSpacing: 16,
-        title: Row(children: [
-          const RadianMark(size: 34),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(widget.session.plate, style: mono(theme.textTheme.titleMedium).copyWith(fontWeight: FontWeight.w600)),
-                Text(
-                  '${widget.session.driverName} · ${_kind(widget.session.vehicleKind)}',
-                  style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
-                ),
-              ],
+      body: Stack(children: [
+        IndexedStack(index: _tab, children: [
+          shiftTab,
+          JobsTab(
+            job: job,
+            onShift: onShift,
+            today: _today,
+            onShowJob: () => setState(() => _tab = 0),
+            onRefresh: () async {
+              await _refreshJob();
+              await _refreshToday();
+            },
+          ),
+          HistoryTab(refreshKey: _historyKey),
+          ProfileTab(session: widget.session, onShift: onShift, onSignOut: _signOut, onPhoneSetup: _showPhoneSetup),
+        ]),
+        // An offer takes the whole screen, whatever tab is open.
+        if (offer)
+          Positioned.fill(
+            child: OfferView(
+              key: ValueKey(job.id),
+              job: job,
+              busy: _jobBusy,
+              onAccept: () => _jobAction(() => DriverJobApi.accept(job.id)), // the screen itself changes to the job
+              onDecline: () => _jobAction(() => DriverJobApi.decline(job.id)),
             ),
           ),
-        ]),
-        actions: [
-          PopupMenuButton<String>(
-            tooltip: 'More',
-            onSelected: (_) => _signOut(),
-            itemBuilder: (_) => [
-              PopupMenuItem(
-                value: 'signout',
-                enabled: !onShift,
-                child: ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  leading: const Icon(Icons.logout),
-                  title: const Text('Sign out'),
-                  subtitle: onShift ? const Text('End your shift first') : null,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-      body: SafeArea(
-        bottom: false,
-        child: RefreshIndicator(
-          onRefresh: _recheck,
-          child: ListView(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-            children: [
-              if (onShift) ...[
-                _ShiftHero(status: s),
-                if (_job != null) ...[
-                  const SizedBox(height: 12),
-                  JobCard(
-                    job: _job!,
-                    busy: _jobBusy,
-                    onAccept: () => _jobAction(() => DriverJobApi.accept(_job!.id), done: 'Job accepted. Head to the pickup.'),
-                    onDecline: () => _jobAction(() => DriverJobApi.decline(_job!.id)),
-                    onAdvance: (st) => _jobAction(
-                      () => DriverJobApi.setStatus(_job!.id, st),
-                      done: st == 'COMPLETED' ? 'Job complete. Nice work.' : null,
-                    ),
-                  ),
-                ],
-                if (_backlogPeak >= 10 && s.queued > 0) ...[
-                  const SizedBox(height: 12),
-                  _UploadBanner(status: s, peak: _backlogPeak),
-                ],
-              ] else
-                _OffHero(readiness: _readiness, interrupted: _interrupted),
-              if (s.error != null) ...[
-                const SizedBox(height: 12),
-                _Banner(text: s.error!),
-              ],
-              const SizedBox(height: 16),
-              if (onShift) _ShiftStats(status: s) else _Checklist(report: _readiness, onAction: _runAction),
-            ],
-          ),
-        ),
-      ),
-      bottomNavigationBar: SafeArea(
-        minimum: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-        child: onShift
-            ? FilledButton.icon(
-                onPressed: _busy ? null : _endShift,
-                style: FilledButton.styleFrom(
-                  backgroundColor: theme.colorScheme.errorContainer,
-                  foregroundColor: theme.colorScheme.onErrorContainer,
-                ),
-                icon: const Icon(Icons.stop_circle_outlined),
-                label: const Text('End shift'),
-              )
-            : FilledButton.icon(
-                onPressed: _busy ? null : _startShift,
-                icon: _busy
-                    ? const SizedBox.square(dimension: 20, child: CircularProgressIndicator(strokeWidth: 2.5))
-                    : const Icon(Icons.play_circle_outline),
-                label: Text(_interrupted ? 'Resume shift' : 'Start shift'),
-              ),
-      ),
-    );
-  }
-}
-
-// --- Off shift --------------------------------------------------------------
-
-class _OffHero extends StatelessWidget {
-  const _OffHero({required this.readiness, required this.interrupted});
-
-  final ReadinessReport? readiness;
-  final bool interrupted;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final r = readiness;
-    final (title, subtitle) = interrupted
-        ? ('Shift interrupted', 'Tracking stopped unexpectedly. Fix the items below, then resume.')
-        : r == null
-            ? ('Off shift', 'Checking your phone…')
-            : !r.canStart
-                ? ('Off shift', 'Fix the items marked red to start your shift.')
-                : r.warnings > 0
-                    ? ('Off shift', 'Ready to go. ${r.warnings == 1 ? 'One tip' : '${r.warnings} tips'} below for reliable tracking.')
-                    : ('Off shift', 'All set. Start your shift to share your location with dispatch.');
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Row(children: [
-          _Pulse(color: interrupted ? warnAmber : theme.colorScheme.outline, active: false),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(title, style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700)),
-              const SizedBox(height: 4),
-              Text(subtitle, style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
-            ]),
-          ),
-        ]),
-      ),
-    );
-  }
-}
-
-class _Checklist extends StatelessWidget {
-  const _Checklist({required this.report, required this.onAction});
-
-  final ReadinessReport? report;
-  final Future<void> Function(CheckAction) onAction;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final r = report;
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 8),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
-            child: Text('Before you start', style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
-          ),
-          if (r == null)
-            const Padding(padding: EdgeInsets.all(24), child: Center(child: CircularProgressIndicator()))
-          else
-            for (final item in r.items)
-              ListTile(
-                leading: _CheckIcon(state: item.state),
-                title: Text(item.title, style: const TextStyle(fontWeight: FontWeight.w600)),
-                subtitle: Text(item.detail),
-                trailing: item.action == null
-                    ? null
-                    : TextButton(onPressed: () => onAction(item.action!), child: Text(item.actionLabel ?? 'Fix')),
-              ),
-        ]),
-      ),
-    );
-  }
-}
-
-class _CheckIcon extends StatelessWidget {
-  const _CheckIcon({required this.state});
-  final CheckState state;
-
-  @override
-  Widget build(BuildContext context) => switch (state) {
-        CheckState.ok => const Icon(Icons.check_circle, color: liveGreen, semanticLabel: 'OK'),
-        CheckState.warn => const Icon(Icons.error_outline, color: warnAmber, semanticLabel: 'Recommended'),
-        CheckState.fail => const Icon(Icons.cancel, color: failRed, semanticLabel: 'Required'),
-      };
-}
-
-// --- On shift ---------------------------------------------------------------
-
-class _ShiftHero extends StatelessWidget {
-  const _ShiftHero({required this.status});
-
-  final TrackerStatus status;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final s = status;
-    final live = s.link == LinkState.online;
-    // On shift, the driver is the live vehicle: the mark's amber dot.
-    final color = live ? liveAmber : theme.colorScheme.outline;
-    final title = live ? 'On shift · Live' : (s.link == LinkState.connecting ? 'On shift · Connecting' : 'On shift · Offline');
-    final updated = s.lastFixAt == null ? 'Waiting for GPS…' : 'Updated ${_ago(s.lastFixAt)}';
-    final subtitle = live
-        ? 'Dispatch can see your vehicle. $updated'
-        : 'No connection. Your route is saved on this phone and uploads automatically.';
-
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Row(children: [
-          _Pulse(color: color, active: live),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(title, style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700)),
-              const SizedBox(height: 4),
-              Text(subtitle, style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
-            ]),
-          ),
-        ]),
-      ),
-    );
-  }
-}
-
-class _UploadBanner extends StatelessWidget {
-  const _UploadBanner({required this.status, required this.peak});
-
-  final TrackerStatus status;
-  final int peak;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final online = status.link == LinkState.online;
-    final done = peak - status.queued;
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Row(children: [
-            Icon(online ? Icons.cloud_upload_outlined : Icons.cloud_off_outlined, size: 20),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                online ? 'Uploading your saved route… $done of $peak' : '${status.queued} location updates saved on this phone',
-                style: const TextStyle(fontWeight: FontWeight.w600),
-              ),
-            ),
-          ]),
-          const SizedBox(height: 10),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(4),
-            child: LinearProgressIndicator(
-              value: online ? done / peak : null,
-              minHeight: 6,
-              backgroundColor: theme.colorScheme.surfaceContainerHighest,
-            ),
-          ),
-          if (!online) ...[
-            const SizedBox(height: 8),
-            Text('They\'ll upload as soon as you have signal.', style: theme.textTheme.bodySmall),
-          ],
-        ]),
-      ),
-    );
-  }
-}
-
-class _ShiftStats extends StatelessWidget {
-  const _ShiftStats({required this.status});
-
-  final TrackerStatus status;
-
-  @override
-  Widget build(BuildContext context) {
-    final s = status;
-    return GridView.count(
-      crossAxisCount: 2,
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      mainAxisSpacing: 12,
-      crossAxisSpacing: 12,
-      childAspectRatio: 1.55,
-      children: [
-        _Tile(icon: Icons.timer_outlined, label: 'On shift', value: _duration(s.startedAt), detail: 'since ${_clockTime(s.startedAt)}'),
-        _Tile(icon: Icons.route_outlined, label: 'Distance', value: _km(s.distanceM), detail: 'this shift'),
-        _Tile(
-          icon: Icons.speed,
-          label: 'Speed',
-          // Below walking-to-driving pace it's GPS noise, not motion.
-          value: s.speedKmh == null ? '—' : '${s.speedKmh! < 5 ? 0 : s.speedKmh!.round()} km/h',
-          detail: s.mode == MotionMode.parked
-              ? 'Parked · saving battery'
-              : (s.speedKmh ?? 0) >= 5
-                  ? 'Moving'
-                  : 'Stopped',
-        ),
-        _Tile(
-          icon: Icons.gps_fixed,
-          label: 'GPS',
-          value: s.accuracyM == null ? '—' : '± ${s.accuracyM!.round()} m',
-          detail: '${s.acked} delivered',
-        ),
-      ],
-    );
-  }
-}
-
-// --- Shared -----------------------------------------------------------------
-
-class _Pulse extends StatefulWidget {
-  const _Pulse({required this.color, required this.active});
-
-  final Color color;
-  final bool active;
-
-  @override
-  State<_Pulse> createState() => _PulseState();
-}
-
-class _PulseState extends State<_Pulse> with SingleTickerProviderStateMixin {
-  late final _ctrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 1600));
-
-  @override
-  void initState() {
-    super.initState();
-    if (widget.active) _ctrl.repeat();
-  }
-
-  @override
-  void didUpdateWidget(covariant _Pulse old) {
-    super.didUpdateWidget(old);
-    if (widget.active && !_ctrl.isAnimating) _ctrl.repeat();
-    if (!widget.active) _ctrl.stop();
-  }
-
-  @override
-  void dispose() {
-    _ctrl.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox.square(
-      dimension: 44,
-      child: AnimatedBuilder(
-        animation: _ctrl,
-        builder: (_, _) => Stack(alignment: Alignment.center, children: [
-          if (widget.active)
-            Container(
-              width: 18 + 26 * _ctrl.value,
-              height: 18 + 26 * _ctrl.value,
-              decoration: BoxDecoration(shape: BoxShape.circle, color: widget.color.withValues(alpha: 0.35 * (1 - _ctrl.value))),
-            ),
-          Container(width: 18, height: 18, decoration: BoxDecoration(shape: BoxShape.circle, color: widget.color)),
-        ]),
-      ),
-    );
-  }
-}
-
-class _Tile extends StatelessWidget {
-  const _Tile({required this.icon, required this.label, required this.value, required this.detail});
-
-  final IconData icon;
-  final String label;
-  final String value;
-  final String detail;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final muted = theme.colorScheme.onSurfaceVariant;
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Row(children: [
-              Icon(icon, size: 16, color: muted),
-              const SizedBox(width: 6),
-              Text(label, style: theme.textTheme.labelMedium?.copyWith(color: muted)),
-            ]),
-            FittedBox(
-              fit: BoxFit.scaleDown,
-              alignment: Alignment.centerLeft,
-              // Mono for readings ("32 m", "± 5 m"), not for words ("under a minute").
-              child: Text(
-                value,
-                style: (value.contains(RegExp(r'\d')) ? mono(theme.textTheme.titleLarge) : theme.textTheme.titleLarge!)
-                    .copyWith(fontWeight: FontWeight.w600),
-              ),
-            ),
-            Text(detail, style: theme.textTheme.bodySmall?.copyWith(color: muted), maxLines: 1, overflow: TextOverflow.ellipsis),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _Banner extends StatelessWidget {
-  const _Banner({required this.text});
-
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(color: scheme.errorContainer, borderRadius: BorderRadius.circular(12)),
-      child: Row(children: [
-        Icon(Icons.error_outline, color: scheme.onErrorContainer),
-        const SizedBox(width: 10),
-        Expanded(child: Text(text, style: TextStyle(color: scheme.onErrorContainer))),
       ]),
+      bottomNavigationBar: offer
+          ? null
+          : NavigationBar(
+              selectedIndex: _tab,
+              onDestinationSelected: (i) {
+                setState(() => _tab = i);
+                if (i == 1) _refreshToday();
+              },
+              destinations: const [
+                NavigationDestination(icon: Icon(Icons.schedule_outlined), selectedIcon: Icon(Icons.schedule), label: 'Shift'),
+                NavigationDestination(icon: Icon(Icons.assignment_outlined), selectedIcon: Icon(Icons.assignment), label: 'Jobs'),
+                NavigationDestination(icon: Icon(Icons.bar_chart_outlined), selectedIcon: Icon(Icons.bar_chart), label: 'History'),
+                NavigationDestination(icon: Icon(Icons.person_outline), selectedIcon: Icon(Icons.person), label: 'Profile'),
+              ],
+            ),
     );
   }
 }
-
-String _ago(DateTime? t) {
-  if (t == null) return '—';
-  final s = DateTime.now().difference(t).inSeconds;
-  if (s < 5) return 'just now';
-  if (s < 60) return '${s}s ago';
-  if (s < 3600) return '${s ~/ 60}m ago';
-  return '${s ~/ 3600}h ago';
-}
-
-String _duration(DateTime? since) {
-  if (since == null) return '—';
-  final d = DateTime.now().difference(since);
-  if (d.inMinutes < 1) return 'under a minute';
-  if (d.inHours < 1) return '${d.inMinutes} min';
-  return '${d.inHours}h ${d.inMinutes % 60}m';
-}
-
-String _clockTime(DateTime? t) =>
-    t == null ? '—' : '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
-
-String _km(double m) => m < 1000 ? '${m.round()} m' : '${(m / 1000).toStringAsFixed(1)} km';
-
-String _kind(String k) => switch (k) {
-      'MOTORBIKE' => 'Motorbike',
-      'AMBULANCE' => 'Ambulance',
-      'VAN' => 'Van',
-      'TRUCK' => 'Truck',
-      _ => 'Car',
-    };

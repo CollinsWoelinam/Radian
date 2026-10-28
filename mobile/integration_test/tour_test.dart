@@ -74,17 +74,27 @@ void main() {
     await hold(t, '05-on-shift-live');
     await hold(t, '06-on-shift-driving');
 
-    await t.tap(find.byTooltip('More'));
+    await t.tap(find.text('Profile'));
     await t.pump(const Duration(milliseconds: 500));
-    await hold(t, '07-menu-on-shift');
-    await t.tapAt(const Offset(10, 400)); // dismiss
+    await hold(t, '07-profile-on-shift');
+    await t.tap(find.text('Shift'));
     await t.pump(const Duration(milliseconds: 500));
 
     await t.tap(find.text('End shift'));
     await pumpUntil(t, find.text('End shift?'));
     await hold(t, '08-end-confirm');
     await t.tap(find.widgetWithText(FilledButton, 'End shift').last);
+    await pumpUntil(t, find.text('Shift complete'));
+    await hold(t, '09-shift-summary');
+    await t.tap(find.text('Done'));
     await pumpUntil(t, find.text('Off shift'));
-    await hold(t, '09-shift-ended');
+    await t.tap(find.text('History'));
+    await t.pump(const Duration(seconds: 2));
+    await hold(t, '10-history');
+    // Markers reach the screenshot script a little late: stay open until it catches up.
+    final end = DateTime.now().add(const Duration(seconds: 10));
+    while (DateTime.now().isBefore(end)) {
+      await t.pump(const Duration(milliseconds: 250));
+    }
   });
 }

@@ -51,6 +51,8 @@ void main() {
     await t.tap(find.text('End shift'));
     await pumpUntil(t, find.text('End shift?'));
     await t.tap(find.widgetWithText(FilledButton, 'End shift').last);
+    await pumpUntil(t, find.text('Shift complete'));
+    await t.tap(find.text('Done'));
     await pumpUntil(t, find.text('Off shift'));
     mark('bg-done');
   });
