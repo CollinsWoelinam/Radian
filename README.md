@@ -11,38 +11,47 @@ See every vehicle live, and send the nearest driver by real drive time.</p>
 Drivers stream GPS from a Flutter app, a Go backend ingests and stores it in TimescaleDB +
 PostGIS, and a Next.js dashboard renders the live fleet with MapLibre + deck.gl.
 
-![Dispatcher dashboard: a job offered to the nearest driver, with the live route to pickup and drop-off](docs/screenshots/web-dispatch-dark.jpg)
+![Dispatch console: a job offered to the nearest driver by drive time, with the road route to pickup and drop-off](docs/screenshots/web-dispatch-dark.jpg)
 
 ## Screenshots
 
-### Dispatcher dashboard
+### Dispatch console
 
 | | |
 |---|---|
-| ![Sign-in](docs/screenshots/web-signin.jpg) | ![Zones with live "vehicles inside" counts, light theme](docs/screenshots/web-zones-light.jpg) |
-| **Sign in.** The brand panel's rings echo the dispatch search radius. | **Zones** (depots, service areas, restricted areas) with live counts of the vehicles inside. |
-| ![A restricted-zone alert and the activity feed](docs/screenshots/web-alerts-dark.jpg) | ![Creating a job: pickup and drop-off clicked on the map](docs/screenshots/web-new-job-light.jpg) |
-| **Alerts.** Entering a restricted zone or leaving the service area raises a toast; every crossing lands in the feed. | **New job.** Click the pickup and drop-off on the map; it goes to the nearest driver by drive time, then the next on a decline or timeout. |
+| ![Live operations: KPIs, the fleet map and what needs attention](docs/screenshots/web-live-dark.jpg) | ![Jobs board, light theme](docs/screenshots/web-jobs-light.jpg) |
+| **Live.** Fleet KPIs over the map, and a "Needs attention" queue: offers about to lapse, jobs with no driver, zone alerts, drivers gone offline mid-job. | **Jobs.** A board by stage (finding a driver, offered, to pickup, to drop-off, done today), or a filterable list. |
+| ![Vehicle detail replaying a shift](docs/screenshots/web-replay-dark.jpg) | ![A zone with its alert rules, light theme](docs/screenshots/web-zone-light.jpg) |
+| **Vehicle replay.** Play back any shift or time window at up to 128×, with distance, driving time, speeding, stops and signal gaps. | **Zones.** Draw depots, service areas and restricted areas; choose per zone whether entering, leaving or lingering raises an alert. |
+| ![Command palette](docs/screenshots/web-palette-dark.jpg) | ![Vehicles list, light theme](docs/screenshots/web-vehicles-light.jpg) |
+| **⌘K** jumps to any plate, driver, job or zone. | **Vehicles.** Every vehicle with its status, driver, battery and last fix. |
+
+<p align="center"><img src="docs/screenshots/web-signin-light.jpg" alt="Console sign-in" width="640"></p>
 
 ### Driver app
 
 <table>
   <tr>
-    <td width="25%"><img src="docs/screenshots/app-signin-ios.png" alt="Driver app sign-in on Night Ink"></td>
-    <td width="25%"><img src="docs/screenshots/app-checklist-android.png" alt="Pre-shift checklist on Android, dark theme"></td>
-    <td width="25%"><img src="docs/screenshots/app-on-shift-ios.png" alt="On shift and live, light theme"></td>
-    <td width="25%"><img src="docs/screenshots/app-end-shift-ios.png" alt="End shift confirmation"></td>
+    <td width="33%"><img src="docs/screenshots/app-off-shift-ios.png" alt="Off shift, with the readiness check"></td>
+    <td width="33%"><img src="docs/screenshots/app-offer-ios.png" alt="A full-screen job offer with a countdown"></td>
+    <td width="33%"><img src="docs/screenshots/app-navigate-ios.png" alt="Navigating to the pickup on the road route"></td>
   </tr>
   <tr>
-    <td><b>Sign in</b> (iOS). The header shrinks while you type so Sign in stays on screen.</td>
-    <td><b>Before you start</b> (Android). Fixes for location, battery saver and the phone maker's background limits.</td>
-    <td><b>On shift.</b> The amber pulse is you: the live vehicle on the dispatcher's map.</td>
-    <td><b>End shift</b> with a summary, so a shift is never ended by accident.</td>
+    <td><b>Off shift.</b> A readiness check (location, battery saver, background limits) before Start shift.</td>
+    <td><b>Job offer.</b> Full screen, with the stops, drive time and a countdown before it moves to the next driver.</td>
+    <td><b>Navigate.</b> The road route to the pickup, then the drop-off, with one button for the next step.</td>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshots/app-live-android.png" alt="On shift and live on Android, dark theme"></td>
+    <td><img src="docs/screenshots/app-summary-ios.png" alt="Shift summary"></td>
+    <td><img src="docs/screenshots/app-history-ios.png" alt="Shift history"></td>
+  </tr>
+  <tr>
+    <td><b>On shift</b> (Android, dark). The amber dot is you: the live vehicle on the dispatcher's map.</td>
+    <td><b>Shift complete.</b> Distance, driving time and jobs, with the route driven.</td>
+    <td><b>History.</b> Past shifts; tap one for its route and totals. Also Jobs and Profile tabs.</td>
   </tr>
 </table>
-
-<p align="center"><img src="docs/screenshots/app-job-offer.png" alt="A job offer with a countdown, and a job in progress" width="420"><br>
-<sub><b>Jobs.</b> An offer counts down before it goes to the next driver; once accepted, the card walks the driver through each stop.</sub></p>
 
 The phone screens come from the integration-test tour, which signs in, drives a simulated route
 and ends the shift: `mobile/tool/tour.sh ios <simulator-udid>` (or `android <serial>`), with the
@@ -147,6 +156,9 @@ the outline). There are three kinds, and each decides what counts as an alert:
 | Service area | a vehicle **leaves** | entries |
 | Depot | none | arrivals and departures |
 
+Those are the defaults; each zone's rules can be changed in the console (alert on enter, alert on
+exit, and alert when a vehicle stays inside longer than a set time).
+
 The `geofencer` reads `telemetry:raw` in its own consumer group and tests each fix against the zones
 in memory (bounding box first, then point-in-polygon). GPS noise at a boundary would otherwise
 cause a burst of enter/exit pairs, so a fix only counts when it is farther from the edge than its
@@ -159,12 +171,14 @@ map and an activity feed.
 PostGIS validates every outline (`ST_IsValid`), so a self-crossing shape is rejected with a clear
 message instead of producing wrong results later.
 
-## Web dashboard
+## Web console
 
-Next.js + MapLibre (OpenFreeMap tiles, no API key) + deck.gl. Fleet state lives outside React in a
-mutable store; a `requestAnimationFrame` loop interpolates every vehicle between fixes and pushes
-fresh layers to deck.gl, while React re-renders the panels at 2 Hz. Markers are sized in meters
-(clamped in pixels) so the fleet stays readable from city to street zoom.
+Next.js + MapLibre (OpenFreeMap tiles, no API key) + deck.gl. A multi-page console: Live, Jobs
+(board, list, new job, per-job dispatch), Zones and Vehicles (detail with track replay), with a
+⌘K palette and light and dark themes. Fleet state lives outside React in a mutable store; a
+`requestAnimationFrame` loop interpolates every vehicle between fixes and pushes fresh layers to
+deck.gl, while React re-renders the panels at 2 Hz. Markers are sized in meters (clamped in pixels)
+so the fleet stays readable from city to street zoom.
 
 ## Backend services
 
