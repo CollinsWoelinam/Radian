@@ -49,7 +49,7 @@ PostGIS, and a Next.js dashboard renders the live fleet with MapLibre + deck.gl.
   <tr>
     <td><b>On shift</b> (Android, dark). The amber dot is you: the live vehicle on the dispatcher's map.</td>
     <td><b>Shift complete.</b> Distance, driving time and jobs, with the route driven.</td>
-    <td><b>History.</b> Past shifts; tap one for its route and totals. Also Jobs and Profile tabs.</td>
+    <td><b>History.</b> Past shifts; tap one for its route and totals. On the tab bar, the Shift tab is the Sweep mark, and its dot turns amber while you're live.</td>
   </tr>
 </table>
 

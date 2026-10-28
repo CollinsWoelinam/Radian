@@ -14,6 +14,7 @@ import '../tracking/readiness.dart';
 import '../tracking/status.dart';
 import 'format.dart';
 import 'shift_views.dart';
+import 'tab_bar.dart';
 import 'tabs.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -462,17 +463,18 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       ]),
       bottomNavigationBar: offer
           ? null
-          : NavigationBar(
-              selectedIndex: _tab,
-              onDestinationSelected: (i) {
+          : RadianTabBar(
+              index: _tab,
+              live: onShift,
+              onSelect: (i) {
                 setState(() => _tab = i);
                 if (i == 1) _refreshToday();
               },
-              destinations: const [
-                NavigationDestination(icon: Icon(Icons.schedule_outlined), selectedIcon: Icon(Icons.schedule), label: 'Shift'),
-                NavigationDestination(icon: Icon(Icons.assignment_outlined), selectedIcon: Icon(Icons.assignment), label: 'Jobs'),
-                NavigationDestination(icon: Icon(Icons.bar_chart_outlined), selectedIcon: Icon(Icons.bar_chart), label: 'History'),
-                NavigationDestination(icon: Icon(Icons.person_outline), selectedIcon: Icon(Icons.person), label: 'Profile'),
+              items: [
+                const TabItem(TabIcon.shift, 'Shift'),
+                TabItem(TabIcon.jobs, 'Jobs', badge: job != null && _tab != 1),
+                const TabItem(TabIcon.history, 'History'),
+                const TabItem(TabIcon.profile, 'Profile'),
               ],
             ),
     );
